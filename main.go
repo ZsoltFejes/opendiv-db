@@ -24,7 +24,6 @@ type Dog struct {
 }
 
 func main() {
-	flag.Parse()
 	// Set working directory
 	ex, err := os.Executable()
 	if err != nil {
@@ -48,6 +47,9 @@ func main() {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
 
+	//////////
+	// TEST //
+	//////////
 	liza := Dog{Name: "Liza", Age: 2, Type: "Weiner"}
 	db.Write("Dogs", "Liza", liza, config.Encryption_key)
 

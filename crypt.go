@@ -3,10 +3,9 @@ package main
 import (
 	"bytes"
 	"crypto/aes"
-	"encoding/hex"
 )
 
-func EncryptAES(key string, data []byte) string {
+func EncryptAES(key string, data []byte) []byte {
 	keyBytes := []byte(key)
 	c, err := aes.NewCipher(keyBytes)
 	if err != nil {
@@ -18,6 +17,7 @@ func EncryptAES(key string, data []byte) string {
 	if len(data) > passes*16 {
 		passes++
 	}
+
 	for i := 0; i < passes; i++ {
 		pass := make([]byte, 16)
 		data_to_encrypt := make([]byte, 16)
@@ -40,15 +40,11 @@ func EncryptAES(key string, data []byte) string {
 		}
 	}
 
-	return hex.EncodeToString(bytes.Trim(out, "\x00"))
+	return bytes.Trim(out, "\x00")
 }
 
-func DecryptAES(key string, ct string) []byte {
+func DecryptAES(key string, ciphertext []byte) []byte {
 	keyBytes := []byte(key)
-	ciphertext, err := hex.DecodeString(ct)
-	if err != nil {
-		l("Unable to convert hex to cypher text! "+err.Error(), false, true)
-	}
 
 	c, err := aes.NewCipher(keyBytes)
 	if err != nil {

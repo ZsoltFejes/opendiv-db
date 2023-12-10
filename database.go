@@ -88,9 +88,8 @@ func (d *Driver) Write(collection, resource string, v interface{}, encryption_ke
 
 	if encryption_key != "" {
 		ct := EncryptAES(encryption_key, b)
-		b_encrypted := []byte(ct)
 		// write marshaled data to the temp file
-		if err := os.WriteFile(tmpPath, b_encrypted, 0644); err != nil {
+		if err := os.WriteFile(tmpPath, ct, 0644); err != nil {
 			return err
 		}
 	} else {
@@ -132,8 +131,7 @@ func (d *Driver) Read(collection, resource string, v interface{}, encryption_key
 	}
 
 	if encryption_key != "" {
-		ct := string(b[:])
-		b = DecryptAES(encryption_key, ct)
+		b = DecryptAES(encryption_key, b[:])
 	}
 
 	return json.Unmarshal(b, &v)
@@ -172,8 +170,7 @@ func (d *Driver) ReadAll(collection string, encryption_key string) ([]string, er
 		}
 
 		if encryption_key != "" {
-			ct := string(b[:])
-			ds := DecryptAES(encryption_key, ct)
+			ds := DecryptAES(encryption_key, b[:])
 			b = []byte(ds)
 		}
 
