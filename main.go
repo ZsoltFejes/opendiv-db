@@ -14,7 +14,7 @@ var (
 )
 
 type Config struct {
-	Encryption_key string `json:"config.Encryption_key,omitempty"`
+	Encryption_key string `json:"encryption_key,omitempty"`
 }
 
 type Dog struct {
