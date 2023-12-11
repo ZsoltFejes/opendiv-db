@@ -1,24 +1,46 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 type (
-
 	// Driver is what is used to interact with the scribble database. It runs
 	// transactions, and provides log output
 	Driver struct {
-		mutex   sync.Mutex
-		mutexes map[string]*sync.Mutex
-		dir     string // the directory where scribble will create the database
+		encryption_key string
+		mutex          sync.Mutex
+		mutexes        map[string]*sync.Mutex
+		dir            string // the directory where scribble will create the database
+	}
+	Document struct {
+		Updated_at time.Time
+		Hash       string
+		Data       interface{}
 	}
 )
+
+func (d *Document) DataTo(v interface{}) error {
+	doc_b, err := json.Marshal(d.Data)
+	if err != nil {
+		l("Unable to marshal document data! "+err.Error(), false, true)
+	}
+
+	return json.Unmarshal(doc_b, &v)
+}
+
+func GetMD5Hash(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
+}
 
 func l(message string, fatal bool, public bool) {
 	if (public || *debug) && !fatal {
@@ -30,15 +52,16 @@ func l(message string, fatal bool, public bool) {
 
 // New creates a new scribble database at the desired directory location, and
 // returns a *Driver to then use for interacting with the database
-func NewDB(dir string) (*Driver, error) {
+func NewDB(dir string, config Config) (*Driver, error) {
 
 	//
 	dir = filepath.Clean(dir)
 
 	//
 	driver := Driver{
-		dir:     dir,
-		mutexes: make(map[string]*sync.Mutex),
+		encryption_key: config.Encryption_key,
+		dir:            dir,
+		mutexes:        make(map[string]*sync.Mutex),
 	}
 
 	// if the database already exists, just use it
@@ -54,7 +77,7 @@ func NewDB(dir string) (*Driver, error) {
 
 // Write locks the database and attempts to write the record to the database under
 // the [collection] specified with the [resource] name given
-func (d *Driver) Write(collection, resource string, v interface{}, encryption_key string) error {
+func (d *Driver) Write(collection, resource string, v interface{}) error {
 
 	// ensure there is a place to save record
 	if collection == "" {
@@ -81,13 +104,19 @@ func (d *Driver) Write(collection, resource string, v interface{}, encryption_ke
 	}
 
 	//
-	b, err := json.MarshalIndent(v, "", "\t")
+	v_b, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
 		return err
 	}
+	document := Document{Data: v, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:]))}
+	b, err := json.MarshalIndent(document, "", "\t")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(b[:]))
 
-	if encryption_key != "" {
-		ct := EncryptAES(encryption_key, b)
+	if d.encryption_key != "" {
+		ct := EncryptAES(d.encryption_key, b)
 		// write marshaled data to the temp file
 		if err := os.WriteFile(tmpPath, ct, 0644); err != nil {
 			return err
@@ -104,16 +133,16 @@ func (d *Driver) Write(collection, resource string, v interface{}, encryption_ke
 }
 
 // Read a record from the database
-func (d *Driver) Read(collection, resource string, v interface{}, encryption_key string) error {
+func (d *Driver) Read(collection, resource string) (Document, error) {
 
 	// ensure there is a place to save record
 	if collection == "" {
-		return fmt.Errorf("Missing collection - no place to save record!")
+		return Document{}, fmt.Errorf("Missing collection - no place to save record!")
 	}
 
 	// ensure there is a resource (name) to save record as
 	if resource == "" {
-		return fmt.Errorf("Missing resource - unable to save record (no name)!")
+		return Document{}, fmt.Errorf("Missing resource - unable to save record (no name)!")
 	}
 
 	//
@@ -121,25 +150,30 @@ func (d *Driver) Read(collection, resource string, v interface{}, encryption_key
 
 	// check to see if file exists
 	if _, err := stat(record); err != nil {
-		return err
+		return Document{}, err
 	}
 
 	// read record from database
 	b, err := os.ReadFile(record)
 	if err != nil {
-		return err
+		return Document{}, err
 	}
 
-	if encryption_key != "" {
-		b = DecryptAES(encryption_key, b[:])
+	if d.encryption_key != "" {
+		b = DecryptAES(d.encryption_key, b[:])
+	}
+	document := Document{}
+	err = json.Unmarshal(b, &document)
+	if err != nil {
+		return Document{}, err
 	}
 
-	return json.Unmarshal(b, &v)
+	return document, nil
 }
 
 // ReadAll records from a collection; this is returned as a slice of strings because
 // there is no way of knowing what type the record is.
-func (d *Driver) ReadAll(collection string, encryption_key string) ([]string, error) {
+func (d *Driver) ReadAll(collection string) ([]Document, error) {
 
 	// ensure there is a collection to read
 	if collection == "" {
@@ -159,7 +193,7 @@ func (d *Driver) ReadAll(collection string, encryption_key string) ([]string, er
 	files, _ := os.ReadDir(dir)
 
 	// the files read from the database
-	var records []string
+	var documents []Document
 
 	// iterate over each of the files, attempting to read the file. If successful
 	// append the files to the collection of read files
@@ -169,17 +203,21 @@ func (d *Driver) ReadAll(collection string, encryption_key string) ([]string, er
 			return nil, err
 		}
 
-		if encryption_key != "" {
-			ds := DecryptAES(encryption_key, b[:])
+		if d.encryption_key != "" {
+			ds := DecryptAES(d.encryption_key, b[:])
 			b = []byte(ds)
 		}
-
+		doc := Document{}
+		err = json.Unmarshal(b, &doc)
+		if err != nil {
+			return nil, err
+		}
 		// append read file
-		records = append(records, string(b))
+		documents = append(documents, doc)
 	}
 
 	// unmarhsal the read files as a comma delimeted byte array
-	return records, nil
+	return documents, nil
 }
 
 // Delete locks that database and then attempts to remove the collection/resource

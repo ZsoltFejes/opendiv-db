@@ -18,9 +18,9 @@ type Config struct {
 }
 
 type Dog struct {
-	Name string `json:"name,omitempty"`
-	Type string `json:"type,omitempty"`
-	Age  int    `json:"age,omitempty"`
+	Name string
+	Type string
+	Age  int
 }
 
 func main() {
@@ -42,7 +42,7 @@ func main() {
 		l("Unable to unmarshal config file", true, true)
 	}
 
-	db, err := NewDB("db")
+	db, err := NewDB("db", config)
 	if err != nil {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
@@ -51,20 +51,21 @@ func main() {
 	// TEST //
 	//////////
 	liza := Dog{Name: "Liza", Age: 2, Type: "Weiner"}
-	db.Write("Dogs", "Liza", liza, config.Encryption_key)
+	db.Write("Dogs", "Liza", liza)
 
 	buksi := Dog{Name: "Buksi", Age: 8, Type: "German Shepard"}
-	db.Write("Dogs", "Buksi", buksi, config.Encryption_key)
+	db.Write("Dogs", "Buksi", buksi)
 
 	liza_read := Dog{}
-	err = db.Read("Dogs", "Liza", &liza_read, config.Encryption_key)
+	doc, err := db.Read("Dogs", "Liza")
 	if err != nil {
 		l("Unable to marshall data! "+err.Error(), false, true)
 	}
+	doc.DataTo(&liza_read)
 	fmt.Println(liza_read)
 
-	// Read all fish from the database, unmarshaling the response.
-	records, err := db.ReadAll("Dogs", config.Encryption_key)
+	// Read all fish from the database.
+	records, err := db.ReadAll("Dogs")
 	if err != nil {
 		l("Error"+err.Error(), true, true)
 	}
@@ -72,8 +73,9 @@ func main() {
 	dogs := []Dog{}
 	for _, f := range records {
 		dogFound := Dog{}
-		if err := json.Unmarshal([]byte(f), &dogFound); err != nil {
-			fmt.Println("Error", err)
+		err := f.DataTo(&dogFound)
+		if err != nil {
+			l("Unable to convert data to Dog! "+err.Error(), false, true)
 		}
 		dogs = append(dogs, dogFound)
 	}
