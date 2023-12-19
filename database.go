@@ -31,7 +31,7 @@ type (
 func (d *Document) DataTo(v interface{}) error {
 	doc_b, err := json.Marshal(d.Data)
 	if err != nil {
-		l("Unable to marshal document data! "+err.Error(), false, true)
+		return fmt.Errorf("Unable to marshal document data! " + err.Error())
 	}
 
 	return json.Unmarshal(doc_b, &v)
@@ -113,7 +113,6 @@ func (d *Driver) Write(collection, resource string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(b[:]))
 
 	if d.encryption_key != "" {
 		ct := EncryptAES(d.encryption_key, b)
