@@ -23,8 +23,8 @@ type (
 	}
 	Document struct {
 		Updated_at time.Time
-		Hash       string
-		Data       interface{}
+		Hash       string // Hash of "Data" bytes
+		Data       json.RawMessage
 	}
 )
 
@@ -108,7 +108,7 @@ func (d *Driver) Write(collection, resource string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	document := Document{Data: v, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:]))}
+	document := Document{Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:]))}
 	b, err := json.MarshalIndent(document, "", "\t")
 	if err != nil {
 		return err
