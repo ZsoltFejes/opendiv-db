@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type (
@@ -22,6 +24,7 @@ type (
 		dir            string // the directory where scribble will create the database
 	}
 	Document struct {
+		Id         string
 		Updated_at time.Time
 		Hash       string // Hash of "Data" bytes
 		Data       json.RawMessage
@@ -33,7 +36,7 @@ type (
 	Filter struct {
 		Collection string
 		Field      string // Filed to filter by
-		Condition  string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: <Field> <Confition> <Value>
+		Condition  string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: [Field] [Confition] [Value]
 		Value      any    // Value of condition
 	}
 )
@@ -86,17 +89,24 @@ func NewDB(dir string, config Config) (*Driver, error) {
 }
 
 // Write locks the database and attempts to write the record to the database under
-// the [collection] specified with the [resource] name given
-func (d *Driver) Write(collection, resource string, v interface{}) error {
+// the [collection] specified with the random document name (UUID). Name is added to document under [Id]
+func (d *Driver) Add(collection string, v interface{}) (Document, error) {
+	new_id := uuid.NewString()
+	return d.Write(collection, new_id, v)
+}
+
+// Write locks the database and attempts to write the record to the database under
+// the [collection] specified with the [document] name given
+func (d *Driver) Write(collection, document string, v interface{}) (Document, error) {
 
 	// ensure there is a place to save record
 	if collection == "" {
-		return fmt.Errorf("Missing collection - no place to save record!")
+		return Document{}, fmt.Errorf("Missing collection - no place to save record!")
 	}
 
-	// ensure there is a resource (name) to save record as
-	if resource == "" {
-		return fmt.Errorf("Missing resource - unable to save record (no name)!")
+	// ensure there is a document (name) to save record as
+	if document == "" {
+		document = uuid.NewString()
 	}
 
 	mutex := d.getOrCreateMutex(collection)
@@ -104,55 +114,59 @@ func (d *Driver) Write(collection, resource string, v interface{}) error {
 	defer mutex.Unlock()
 
 	dir := filepath.Join(d.dir, collection)
-	fnlPath := filepath.Join(dir, resource)
+	fnlPath := filepath.Join(dir, document)
 	tmpPath := fnlPath + ".tmp"
 
 	// create collection directory
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
+		return Document{}, err
 	}
 	v_b, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
-		return err
+		return Document{}, err
 	}
-	document := Document{Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:]))}
-	b, err := json.MarshalIndent(document, "", "\t")
+	doc := Document{Id: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:]))}
+	b, err := json.MarshalIndent(doc, "", "\t")
 	if err != nil {
-		return err
+		return Document{}, err
 	}
 
 	if d.encryption_key != "" {
 		ct := EncryptAES(d.encryption_key, b)
 		// write marshaled data to the temp file
 		if err := os.WriteFile(tmpPath, ct, 0644); err != nil {
-			return err
+			return Document{}, err
 		}
 	} else {
 		// write marshaled data to the temp file
 		if err := os.WriteFile(tmpPath, b, 0644); err != nil {
-			return err
+			return Document{}, err
 		}
 	}
 
 	// move final file into place
-	return os.Rename(tmpPath, fnlPath)
+	err = os.Rename(tmpPath, fnlPath)
+	if err != nil {
+		return Document{}, err
+	}
+	return doc, nil
 }
 
 // Read a record from the database
-func (d *Driver) Read(collection, resource string) (Document, error) {
+func (d *Driver) Read(collection, document string) (Document, error) {
 
 	// ensure there is a place to save record
 	if collection == "" {
 		return Document{}, fmt.Errorf("Missing collection - no place to save record!")
 	}
 
-	// ensure there is a resource (name) to save record as
-	if resource == "" {
-		return Document{}, fmt.Errorf("Missing resource - unable to save record (no name)!")
+	// ensure there is a document (name) to save record as
+	if document == "" {
+		return Document{}, fmt.Errorf("Missing document - unable to save record (no name)!")
 	}
 
 	//
-	record := filepath.Join(d.dir, collection, resource)
+	record := filepath.Join(d.dir, collection, document)
 
 	// check to see if file exists
 	if _, err := stat(record); err != nil {
@@ -168,13 +182,13 @@ func (d *Driver) Read(collection, resource string) (Document, error) {
 	if d.encryption_key != "" {
 		b = DecryptAES(d.encryption_key, b[:])
 	}
-	document := Document{}
+	doc := Document{}
 	err = json.Unmarshal(b, &document)
 	if err != nil {
 		return Document{}, err
 	}
 
-	return document, nil
+	return doc, nil
 }
 
 // ReadAll records from a collection; this is returned as a slice of strings because
@@ -303,10 +317,10 @@ func (d *Driver) ReadAll(filter Filter) (Collection, error) {
 	return c, nil
 }
 
-// Delete locks that database and then attempts to remove the collection/resource
+// Delete locks that database and then attempts to remove the collection/document
 // specified by [path]
-func (d *Driver) Delete(collection, resource string) error {
-	path := filepath.Join(collection, resource)
+func (d *Driver) Delete(collection, document string) error {
+	path := filepath.Join(collection, document)
 	//
 	mutex := d.getOrCreateMutex(collection)
 	mutex.Lock()

@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// Check Encryption key length
-	if len(config.Encryption_key) != 32 {
+	if len(config.Encryption_key) > 0 && len(config.Encryption_key) != 32 {
 		l("Encryption key length must be 32 characters!", true, true)
 	}
 
@@ -49,18 +49,9 @@ func main() {
 	}
 
 	// Test start
-	filter := Filter{Collection: "Dogs", Field: "Name", Condition: "!=", Value: "Buksi"}
-	data, err := DB.ReadAll(filter)
-	if err != nil {
-		l(err.Error(), false, true)
-	}
-	for _, doc := range data.Documents {
-		var d map[string]interface{}
-		if err := json.Unmarshal(doc.Data, &d); err != nil {
-			panic(err)
-		}
-		fmt.Println(d)
-	}
-	// Test end
+	test_data := make(map[string]interface{})
+	test_data["Test"] = "test"
+	doc, err := DB.Add("Test", test_data)
+	fmt.Println(doc.Id)
 
 }
