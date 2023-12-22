@@ -183,7 +183,7 @@ func (d *Driver) Read(collection, document string) (Document, error) {
 		b = DecryptAES(d.encryption_key, b[:])
 	}
 	doc := Document{}
-	err = json.Unmarshal(b, &document)
+	err = json.Unmarshal(b, &doc)
 	if err != nil {
 		return Document{}, err
 	}
@@ -214,19 +214,9 @@ func (d *Driver) ReadAll(filter Filter) (Collection, error) {
 	// iterate over each of the files, attempting to read the file. If successful
 	// append the files to the collection of read files
 	for _, file := range files {
-		b, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		doc, err := d.Read(filter.Collection, file.Name())
 		if err != nil {
-			return c, err
-		}
-
-		if d.encryption_key != "" {
-			ds := DecryptAES(d.encryption_key, b[:])
-			b = []byte(ds)
-		}
-		doc := Document{}
-		err = json.Unmarshal(b, &doc)
-		if err != nil {
-			return c, err
+			return c, fmt.Errorf("Unable to read file "+file.Name(), false, true)
 		}
 
 		// If conditional specified

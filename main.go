@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -47,11 +46,5 @@ func main() {
 	if err != nil {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
-
-	// Test start
-	test_data := make(map[string]interface{})
-	test_data["Test"] = "test"
-	doc, err := DB.Add("Test", test_data)
-	fmt.Println(doc.Id)
 
 }
