@@ -38,6 +38,11 @@ func main() {
 		l("Unable to unmarshal config file", true, true)
 	}
 
+	// Check Encryption key length
+	if len(config.Encryption_key) != 32 {
+		l("Encryption key length must be 32 characters!", true, true)
+	}
+
 	DB, err = NewDB(config.DB_Path, config)
 	if err != nil {
 		l("Unable to create DB! "+err.Error(), true, true)
