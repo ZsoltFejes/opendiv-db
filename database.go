@@ -26,6 +26,16 @@ type (
 		Hash       string // Hash of "Data" bytes
 		Data       json.RawMessage
 	}
+	Collection struct {
+		Documents []Document
+	}
+
+	Filter struct {
+		Collection string
+		Field      string // Filed to filter by
+		Condition  string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: <Field> <Confition> <Value>
+		Value      any    // Value of condition
+	}
 )
 
 func (d *Document) DataTo(v interface{}) error {
@@ -93,7 +103,6 @@ func (d *Driver) Write(collection, resource string, v interface{}) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	//
 	dir := filepath.Join(d.dir, collection)
 	fnlPath := filepath.Join(dir, resource)
 	tmpPath := fnlPath + ".tmp"
@@ -102,8 +111,6 @@ func (d *Driver) Write(collection, resource string, v interface{}) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-
-	//
 	v_b, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
 		return err
@@ -172,34 +179,30 @@ func (d *Driver) Read(collection, resource string) (Document, error) {
 
 // ReadAll records from a collection; this is returned as a slice of strings because
 // there is no way of knowing what type the record is.
-func (d *Driver) ReadAll(collection string) ([]Document, error) {
-
+func (d *Driver) ReadAll(filter Filter) (Collection, error) {
+	var c Collection
 	// ensure there is a collection to read
-	if collection == "" {
-		return nil, fmt.Errorf("Missing collection - unable to record location!")
+	if filter.Collection == "" {
+		return c, fmt.Errorf("Missing collection - unable to record location!")
 	}
 
-	//
-	dir := filepath.Join(d.dir, collection)
+	dir := filepath.Join(d.dir, filter.Collection)
 
 	// check to see if collection (directory) exists
 	if _, err := stat(dir); err != nil {
-		return nil, err
+		return c, err
 	}
 
 	// read all the files in the transaction.Collection; an error here just means
 	// the collection is either empty or doesn't exist
 	files, _ := os.ReadDir(dir)
 
-	// the files read from the database
-	var documents []Document
-
 	// iterate over each of the files, attempting to read the file. If successful
 	// append the files to the collection of read files
 	for _, file := range files {
 		b, err := os.ReadFile(filepath.Join(dir, file.Name()))
 		if err != nil {
-			return nil, err
+			return c, err
 		}
 
 		if d.encryption_key != "" {
@@ -209,14 +212,95 @@ func (d *Driver) ReadAll(collection string) ([]Document, error) {
 		doc := Document{}
 		err = json.Unmarshal(b, &doc)
 		if err != nil {
-			return nil, err
+			return c, err
 		}
-		// append read file
-		documents = append(documents, doc)
+
+		// If conditional specified
+		if filter.Field != "" && filter.Condition != "" && filter.Value != "" {
+			// Check to make sure correct condition is provided
+			if filter.Condition == "==" || filter.Condition == "<=" || filter.Condition == ">=" || filter.Condition == "!=" {
+				var d map[string]interface{}
+				if err := json.Unmarshal(doc.Data, &d); err != nil {
+					panic(err)
+				}
+				// Find field
+				field := d[filter.Field]
+				// If field is found do comparison
+				if field != nil {
+					switch real := field.(type) {
+					case string:
+						switch filter_t := filter.Value.(type) {
+						case string:
+							switch filter.Condition {
+							case "==":
+								if real == filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							case "!=":
+								if real != filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							}
+						}
+					case float64:
+						switch filter_t := filter.Value.(type) {
+						case float64:
+							switch filter.Condition {
+							case "==":
+								if real == filter.Value {
+									c.Documents = append(c.Documents, doc)
+								}
+							case "<=":
+								if real <= filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							case ">=":
+								if real >= filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							case "!=":
+								if real != filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							case "<":
+								if real < filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							case ">":
+								if real > filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							}
+						default:
+							return c, fmt.Errorf("Filter Value is not float64. For more details: https://pkg.go.dev/encoding/json#Unmarshal")
+						}
+					case bool:
+						switch filter_t := filter.Value.(type) {
+						case bool:
+							switch filter.Condition {
+							case "==":
+								if real == filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							case "!=":
+								if real != filter_t {
+									c.Documents = append(c.Documents, doc)
+								}
+							}
+						}
+					}
+				}
+			} else {
+				return c, fmt.Errorf("Filter '" + filter.Condition + "' is not supported. Accepted conditions ==, <=, >=, != ")
+			}
+		} else {
+			// append read file
+			c.Documents = append(c.Documents, doc)
+		}
 	}
 
 	// unmarhsal the read files as a comma delimeted byte array
-	return documents, nil
+	return c, nil
 }
 
 // Delete locks that database and then attempts to remove the collection/resource
