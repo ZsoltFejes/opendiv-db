@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var (
@@ -47,4 +49,37 @@ func main() {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
 
+	start := time.Now()
+
+	err = DB.Collection("Test").Delete("")
+	if err != nil {
+		print(err.Error())
+	}
+
+	test1 := make(map[string]interface{})
+	test1["Name"] = "test1"
+	test1["Number"] = "1"
+	_, err = DB.Collection("Test").Add(test1)
+	if err != nil {
+		print(err.Error())
+	}
+
+	test2 := make(map[string]interface{})
+	test2["Name"] = "test2"
+	test2["Number"] = "2"
+	_, err = DB.Collection("Test").Add(test2)
+	if err != nil {
+		print(err.Error())
+	}
+	col, err := DB.Collection("Test").Where("Name", "==", "test1").Documents()
+	if err != nil {
+		print(err.Error())
+	}
+	for _, doc := range col.Documents {
+		var data map[string]interface{}
+		doc.DataTo(&data)
+		fmt.Println(data)
+	}
+	end := time.Now()
+	fmt.Println(end.Sub(start))
 }

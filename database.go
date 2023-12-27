@@ -1,5 +1,8 @@
 package main
 
+// TODO: Rework workflow so it is db.collection that returns a reference that allows filters, all documents or a single document by name
+// Similar to how it is done for Firestore
+
 import (
 	"crypto/md5"
 	"encoding/hex"
@@ -8,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +27,11 @@ type (
 		mutexes        map[string]*sync.Mutex
 		dir            string // the directory where scribble will create the database
 	}
+
+	Collection_ref struct {
+		collection_name string
+		driver          *Driver
+	}
 	Document struct {
 		Id         string
 		Updated_at time.Time
@@ -34,14 +43,15 @@ type (
 	}
 
 	Filter struct {
-		Collection string
-		Field      string // Filed to filter by
-		Condition  string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: [Field] [Confition] [Value]
-		Value      any    // Value of condition
+		collection *Collection_ref
+		driver     *Driver
+		field      string // Filed to filter by
+		operand    string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: [Field] [Confition] [Value]
+		value      any    // Value of condition
 	}
 )
 
-func (d *Document) DataTo(v interface{}) error {
+func (d Document) DataTo(v interface{}) error {
 	doc_b, err := json.Marshal(d.Data)
 	if err != nil {
 		return fmt.Errorf("Unable to marshal document data! " + err.Error())
@@ -88,19 +98,23 @@ func NewDB(dir string, config Config) (*Driver, error) {
 	return &driver, os.MkdirAll(dir, 0755)
 }
 
+func (d *Driver) Collection(name string) *Collection_ref {
+	return &Collection_ref{collection_name: name, driver: d}
+}
+
 // Write locks the database and attempts to write the record to the database under
 // the [collection] specified with the random document name (UUID). Name is added to document under [Id]
-func (d *Driver) Add(collection string, v interface{}) (Document, error) {
+func (c *Collection_ref) Add(v interface{}) (Document, error) {
 	new_id := uuid.NewString()
-	return d.Write(collection, new_id, v)
+	return c.Write(new_id, v)
 }
 
 // Write locks the database and attempts to write the record to the database under
 // the [collection] specified with the [document] name given
-func (d *Driver) Write(collection, document string, v interface{}) (Document, error) {
+func (c *Collection_ref) Write(document string, v interface{}) (Document, error) {
 
 	// ensure there is a place to save record
-	if collection == "" {
+	if c.collection_name == "" {
 		return Document{}, fmt.Errorf("Missing collection - no place to save record!")
 	}
 
@@ -109,11 +123,11 @@ func (d *Driver) Write(collection, document string, v interface{}) (Document, er
 		document = uuid.NewString()
 	}
 
-	mutex := d.getOrCreateMutex(collection)
+	mutex := c.driver.getOrCreateMutex(c.collection_name)
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	dir := filepath.Join(d.dir, collection)
+	dir := filepath.Join(c.driver.dir, c.collection_name)
 	fnlPath := filepath.Join(dir, document)
 	tmpPath := fnlPath + ".tmp"
 
@@ -131,8 +145,8 @@ func (d *Driver) Write(collection, document string, v interface{}) (Document, er
 		return Document{}, err
 	}
 
-	if d.encryption_key != "" {
-		ct := EncryptAES(d.encryption_key, b)
+	if c.driver.encryption_key != "" {
+		ct := EncryptAES(c.driver.encryption_key, b)
 		// write marshaled data to the temp file
 		if err := os.WriteFile(tmpPath, ct, 0644); err != nil {
 			return Document{}, err
@@ -153,24 +167,31 @@ func (d *Driver) Write(collection, document string, v interface{}) (Document, er
 }
 
 // Read a record from the database
-func (d *Driver) Read(collection, document string) (Document, error) {
-
+func (c *Collection_ref) Document(id string) (Document, error) {
 	// ensure there is a place to save record
-	if collection == "" {
+	if c.collection_name == "" {
 		return Document{}, fmt.Errorf("Missing collection - no place to save record!")
 	}
 
 	// ensure there is a document (name) to save record as
-	if document == "" {
+	if id == "" {
 		return Document{}, fmt.Errorf("Missing document - unable to save record (no name)!")
 	}
 
-	//
-	record := filepath.Join(d.dir, collection, document)
+	if strings.Contains(id, "/") || strings.Contains(id, `\`) {
+		return Document{}, fmt.Errorf(`Unsopported Character in document ID! Document ID can't contain '/' or '\'`)
+	}
 
-	// check to see if file exists
+	// check to see if collection (directory) exists
+	dir := filepath.Join(c.driver.dir, c.collection_name)
+	if _, err := stat(dir); err != nil {
+		return Document{}, fmt.Errorf("Collection '" + c.collection_name + "' doesn't exist!")
+	}
+
+	// Check to see if file exists
+	record := filepath.Join(c.driver.dir, c.collection_name, id)
 	if _, err := stat(record); err != nil {
-		return Document{}, err
+		return Document{}, fmt.Errorf("Document '" + id + "' doesn't exist in '" + c.collection_name + "!")
 	}
 
 	// read record from database
@@ -179,8 +200,8 @@ func (d *Driver) Read(collection, document string) (Document, error) {
 		return Document{}, err
 	}
 
-	if d.encryption_key != "" {
-		b = DecryptAES(d.encryption_key, b[:])
+	if c.driver.encryption_key != "" {
+		b = DecryptAES(c.driver.encryption_key, b[:])
 	}
 	doc := Document{}
 	err = json.Unmarshal(b, &doc)
@@ -193,18 +214,17 @@ func (d *Driver) Read(collection, document string) (Document, error) {
 
 // ReadAll records from a collection; this is returned as a slice of strings because
 // there is no way of knowing what type the record is.
-func (d *Driver) ReadAll(filter Filter) (Collection, error) {
-	var c Collection
+func (c *Collection_ref) Documents() (Collection, error) {
+	var col Collection
 	// ensure there is a collection to read
-	if filter.Collection == "" {
-		return c, fmt.Errorf("Missing collection - unable to record location!")
+	if c.collection_name == "" {
+		return col, fmt.Errorf("Missing collection - unable to record location!")
 	}
 
-	dir := filepath.Join(d.dir, filter.Collection)
-
 	// check to see if collection (directory) exists
+	dir := filepath.Join(c.driver.dir, c.collection_name)
 	if _, err := stat(dir); err != nil {
-		return c, err
+		return col, fmt.Errorf("Collection '" + c.collection_name + "' doesn't exist!")
 	}
 
 	// read all the files in the transaction.Collection; an error here just means
@@ -214,110 +234,29 @@ func (d *Driver) ReadAll(filter Filter) (Collection, error) {
 	// iterate over each of the files, attempting to read the file. If successful
 	// append the files to the collection of read files
 	for _, file := range files {
-		doc, err := d.Read(filter.Collection, file.Name())
+		doc, err := c.Document(file.Name())
 		if err != nil {
-			return c, fmt.Errorf("Unable to read file "+file.Name(), false, true)
+			return col, fmt.Errorf("Unable to read file "+file.Name(), false, true)
 		}
 
-		// If conditional specified
-		if filter.Field != "" && filter.Condition != "" && filter.Value != "" {
-			// Check to make sure correct condition is provided
-			if filter.Condition == "==" || filter.Condition == "<=" || filter.Condition == ">=" || filter.Condition == "!=" {
-				var d map[string]interface{}
-				if err := json.Unmarshal(doc.Data, &d); err != nil {
-					panic(err)
-				}
-				// Find field
-				field := d[filter.Field]
-				// If field is found do comparison
-				if field != nil {
-					switch real := field.(type) {
-					case string:
-						switch filter_t := filter.Value.(type) {
-						case string:
-							switch filter.Condition {
-							case "==":
-								if real == filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							case "!=":
-								if real != filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							}
-						}
-					case float64:
-						switch filter_t := filter.Value.(type) {
-						case float64:
-							switch filter.Condition {
-							case "==":
-								if real == filter.Value {
-									c.Documents = append(c.Documents, doc)
-								}
-							case "<=":
-								if real <= filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							case ">=":
-								if real >= filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							case "!=":
-								if real != filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							case "<":
-								if real < filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							case ">":
-								if real > filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							}
-						default:
-							return c, fmt.Errorf("Filter Value is not float64. For more details: https://pkg.go.dev/encoding/json#Unmarshal")
-						}
-					case bool:
-						switch filter_t := filter.Value.(type) {
-						case bool:
-							switch filter.Condition {
-							case "==":
-								if real == filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							case "!=":
-								if real != filter_t {
-									c.Documents = append(c.Documents, doc)
-								}
-							}
-						}
-					}
-				}
-			} else {
-				return c, fmt.Errorf("Filter '" + filter.Condition + "' is not supported. Accepted conditions ==, <=, >=, != ")
-			}
-		} else {
-			// append read file
-			c.Documents = append(c.Documents, doc)
-		}
+		// append read file
+		col.Documents = append(col.Documents, doc)
 	}
 
 	// unmarhsal the read files as a comma delimeted byte array
-	return c, nil
+	return col, nil
 }
 
 // Delete locks that database and then attempts to remove the collection/document
 // specified by [path]
-func (d *Driver) Delete(collection, document string) error {
-	path := filepath.Join(collection, document)
-	//
-	mutex := d.getOrCreateMutex(collection)
+func (c *Collection_ref) Delete(id string) error {
+	path := filepath.Join(c.collection_name, id)
+	mutex := c.driver.getOrCreateMutex(c.collection_name)
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	//
-	dir := filepath.Join(d.dir, path)
+	dir := filepath.Join(c.driver.dir, path)
 
 	switch fi, err := stat(dir); {
 
@@ -335,6 +274,125 @@ func (d *Driver) Delete(collection, document string) error {
 	}
 
 	return nil
+}
+
+func (c *Collection_ref) Where(field string, operand string, value string) *Filter {
+	return &Filter{collection: c, driver: c.driver, field: field, operand: operand, value: value}
+}
+
+func (f *Filter) Documents() (Collection, error) {
+	var col Collection
+	// ensure there is a collection to read
+	if f.collection.collection_name == "" {
+		return col, fmt.Errorf("Missing collection - unable to record location!")
+	}
+
+	dir := filepath.Join(f.driver.dir, f.collection.collection_name)
+
+	// check to see if collection (directory) exists
+	if _, err := stat(dir); err != nil {
+		return col, err
+	}
+
+	// read all the files in the transaction.Collection; an error here just means
+	// the collection is either empty or doesn't exist
+	files, _ := os.ReadDir(dir)
+
+	// iterate over each of the files, attempting to read the file. If successful
+	// append the files to the collection of read files
+	for _, file := range files {
+		doc, err := f.collection.Document(file.Name())
+		if err != nil {
+			return col, fmt.Errorf("Unable to read file "+file.Name(), false, true)
+		}
+
+		// Accepted operands
+		operands := map[string]bool{
+			"==": true,
+			"<=": true,
+			">=": true,
+			"!=": true,
+			"<":  true,
+			">":  true}
+
+		// Check to make sure correct condition is provided
+		if operands[f.operand] {
+			var d map[string]interface{}
+			if err := json.Unmarshal(doc.Data, &d); err != nil {
+				panic(err)
+			}
+			// Find field
+			field := d[f.field]
+			// If field is found do comparison
+			if field != nil {
+				switch real := field.(type) {
+				case string:
+					switch filter_t := f.value.(type) {
+					case string:
+						switch f.operand {
+						case "==":
+							if real == filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						case "!=":
+							if real != filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						}
+					}
+				case float64:
+					switch filter_t := f.value.(type) {
+					case float64:
+						switch f.operand {
+						case "==":
+							if real == f.value {
+								col.Documents = append(col.Documents, doc)
+							}
+						case "<=":
+							if real <= filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						case ">=":
+							if real >= filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						case "!=":
+							if real != filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						case "<":
+							if real < filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						case ">":
+							if real > filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						}
+					default:
+						return col, fmt.Errorf("Filter Value is not float64. For more details: https://pkg.go.dev/encoding/json#Unmarshal")
+					}
+				case bool:
+					switch filter_t := f.value.(type) {
+					case bool:
+						switch f.operand {
+						case "==":
+							if real == filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						case "!=":
+							if real != filter_t {
+								col.Documents = append(col.Documents, doc)
+							}
+						}
+					}
+				}
+			}
+		} else {
+			return col, fmt.Errorf("Filter '" + f.operand + "' is not supported. Accepted conditions ==, <=, >=, !=, <, > ")
+		}
+	}
+	return col, nil
 }
 
 func stat(path string) (fi os.FileInfo, err error) {
