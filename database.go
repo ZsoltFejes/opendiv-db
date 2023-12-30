@@ -46,7 +46,7 @@ type (
 		collection *Collection_ref
 		driver     *Driver
 		field      string // Filed to filter by
-		operand    string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: [Field] [Confition] [Value]
+		operator   string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: [field] [operator] [value]
 		value      any    // Value of condition
 	}
 )
@@ -166,7 +166,7 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 	return doc, nil
 }
 
-// Read a record from the database
+// Read a document from the database
 func (c *Collection_ref) Document(id string) (Document, error) {
 	// ensure there is a place to save record
 	if c.collection_name == "" {
@@ -212,7 +212,7 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 	return doc, nil
 }
 
-// ReadAll records from a collection; this is returned as a slice of strings because
+// ReadAll documents from a collection; this is returned as a Collection
 // there is no way of knowing what type the record is.
 func (c *Collection_ref) Documents() (Collection, error) {
 	var col Collection
@@ -276,8 +276,9 @@ func (c *Collection_ref) Delete(id string) error {
 	return nil
 }
 
-func (c *Collection_ref) Where(field string, operand string, value string) *Filter {
-	return &Filter{collection: c, driver: c.driver, field: field, operand: operand, value: value}
+// Creates Filter object so do simple queries
+func (c *Collection_ref) Where(field string, operator string, value string) *Filter {
+	return &Filter{collection: c, driver: c.driver, field: field, operator: operator, value: value}
 }
 
 func (f *Filter) Documents() (Collection, error) {
@@ -306,8 +307,8 @@ func (f *Filter) Documents() (Collection, error) {
 			return col, fmt.Errorf("Unable to read file "+file.Name(), false, true)
 		}
 
-		// Accepted operands
-		operands := map[string]bool{
+		// Accepted operators
+		operators := map[string]bool{
 			"==": true,
 			"<=": true,
 			">=": true,
@@ -316,7 +317,7 @@ func (f *Filter) Documents() (Collection, error) {
 			">":  true}
 
 		// Check to make sure correct condition is provided
-		if operands[f.operand] {
+		if operators[f.operator] {
 			var d map[string]interface{}
 			if err := json.Unmarshal(doc.Data, &d); err != nil {
 				panic(err)
@@ -329,7 +330,7 @@ func (f *Filter) Documents() (Collection, error) {
 				case string:
 					switch filter_t := f.value.(type) {
 					case string:
-						switch f.operand {
+						switch f.operator {
 						case "==":
 							if real == filter_t {
 								col.Documents = append(col.Documents, doc)
@@ -343,7 +344,7 @@ func (f *Filter) Documents() (Collection, error) {
 				case float64:
 					switch filter_t := f.value.(type) {
 					case float64:
-						switch f.operand {
+						switch f.operator {
 						case "==":
 							if real == f.value {
 								col.Documents = append(col.Documents, doc)
@@ -375,7 +376,7 @@ func (f *Filter) Documents() (Collection, error) {
 				case bool:
 					switch filter_t := f.value.(type) {
 					case bool:
-						switch f.operand {
+						switch f.operator {
 						case "==":
 							if real == filter_t {
 								col.Documents = append(col.Documents, doc)
@@ -389,7 +390,7 @@ func (f *Filter) Documents() (Collection, error) {
 				}
 			}
 		} else {
-			return col, fmt.Errorf("Filter '" + f.operand + "' is not supported. Accepted conditions ==, <=, >=, !=, <, > ")
+			return col, fmt.Errorf("Filter '" + f.operator + "' is not supported. Accepted conditions ==, <=, >=, !=, <, > ")
 		}
 	}
 	return col, nil
