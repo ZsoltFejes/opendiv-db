@@ -29,6 +29,8 @@ func main() {
 	WORKDIR = filepath.Dir(ex)
 
 	// Read Config
+	// TODO Check if enviornment variables are defined, use them
+	// TODO If no then read config file
 	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "config.json"))
 	config := Config{}
 	if err != nil {
@@ -58,7 +60,7 @@ func main() {
 
 	test1 := make(map[string]interface{})
 	test1["Name"] = "test1"
-	test1["Number"] = "1"
+	test1["Number"] = 1
 	_, err = DB.Collection("Test").Add(test1)
 	if err != nil {
 		print(err.Error())
@@ -66,7 +68,7 @@ func main() {
 
 	test2 := make(map[string]interface{})
 	test2["Name"] = "test2"
-	test2["Number"] = "2"
+	test2["Number"] = 2
 	_, err = DB.Collection("Test").Add(test2)
 	if err != nil {
 		print(err.Error())
