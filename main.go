@@ -33,7 +33,7 @@ func main() {
 	config := Config{Encryption_key: "", DB_Path: ""}
 	// If  there was an error reading the file fall back to using enviornment variables.
 	if err != nil {
-		l("Unable to read config.json file. Using Enviornemnt variables.", false, true)
+		l("Unable to read config.json file. Using Environment variables.", false, true)
 		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
 		config.DB_Path = os.Getenv("OPENDIV_DB_PATH")
 	} else {
@@ -44,7 +44,7 @@ func main() {
 	}
 	// Check db path is specified.
 	if config.DB_Path == "" {
-		l("No Database path was provided! Make sure db_config.json is in the same directory as the executable or 'OPENDIV_DB_PATH' enviornemnt variable is set.", true, true)
+		l("No Database path was provided! Make sure db_config.json is in the same directory as the executable or 'OPENDIV_DB_PATH' environment variable is set.", true, true)
 	}
 
 	// Check Encryption key length

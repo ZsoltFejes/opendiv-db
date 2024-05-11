@@ -179,7 +179,7 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 	}
 
 	if strings.Contains(id, "/") || strings.Contains(id, `\`) {
-		return Document{}, fmt.Errorf(`unsopported Character in document ID! Document ID can't contain '/' or '\'`)
+		return Document{}, fmt.Errorf(`unsupported character in document ID! Document ID can't contain '/' or '\'`)
 	}
 
 	// check to see if collection (directory) exists
@@ -243,7 +243,7 @@ func (c *Collection_ref) Documents() (Collection, error) {
 		col.Documents = append(col.Documents, doc)
 	}
 
-	// unmarhsal the read files as a comma delimeted byte array
+	// unmarhsal the read files as a comma delimited byte array
 	return col, nil
 }
 
@@ -407,7 +407,7 @@ func stat(path string) (fi os.FileInfo, err error) {
 }
 
 // getOrCreateMutex creates a new collection specific mutex any time a collection
-// is being modfied to avoid unsafe operations
+// is being modified to avoid unsafe operations
 func (d *Driver) getOrCreateMutex(collection string) *sync.Mutex {
 
 	d.mutex.Lock()
