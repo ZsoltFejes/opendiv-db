@@ -22,4 +22,4 @@ go.work
 
 opendiv-db
 db
-config.json
+db_config.json

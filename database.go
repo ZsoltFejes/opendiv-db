@@ -115,7 +115,7 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 
 	// ensure there is a place to save record
 	if c.collection_name == "" {
-		return Document{}, fmt.Errorf("Missing collection - no place to save record!")
+		return Document{}, fmt.Errorf("missing collection - no place to save record")
 	}
 
 	// ensure there is a document (name) to save record as
@@ -170,16 +170,16 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 func (c *Collection_ref) Document(id string) (Document, error) {
 	// ensure there is a place to save record
 	if c.collection_name == "" {
-		return Document{}, fmt.Errorf("Missing collection - no place to save record!")
+		return Document{}, fmt.Errorf("missing collection - no place to save record")
 	}
 
 	// ensure there is a document (name) to save record as
 	if id == "" {
-		return Document{}, fmt.Errorf("Missing document - unable to save record (no name)!")
+		return Document{}, fmt.Errorf("missing document - unable to save record (no name)")
 	}
 
 	if strings.Contains(id, "/") || strings.Contains(id, `\`) {
-		return Document{}, fmt.Errorf(`Unsopported Character in document ID! Document ID can't contain '/' or '\'`)
+		return Document{}, fmt.Errorf(`unsopported Character in document ID! Document ID can't contain '/' or '\'`)
 	}
 
 	// check to see if collection (directory) exists
@@ -218,7 +218,7 @@ func (c *Collection_ref) Documents() (Collection, error) {
 	var col Collection
 	// ensure there is a collection to read
 	if c.collection_name == "" {
-		return col, fmt.Errorf("Missing collection - unable to record location!")
+		return col, fmt.Errorf("missing collection - unable to record location")
 	}
 
 	// check to see if collection (directory) exists
@@ -236,7 +236,7 @@ func (c *Collection_ref) Documents() (Collection, error) {
 	for _, file := range files {
 		doc, err := c.Document(file.Name())
 		if err != nil {
-			return col, fmt.Errorf("Unable to read file "+file.Name(), false, true)
+			return col, fmt.Errorf("unable to read file "+file.Name(), false, true)
 		}
 
 		// append read file
@@ -262,7 +262,7 @@ func (c *Collection_ref) Delete(id string) error {
 
 	// if fi is nil or error is not nil return
 	case fi == nil, err != nil:
-		return fmt.Errorf("Unable to find file or directory named %v\n", path)
+		return fmt.Errorf("unable to find file or directory named %v", path)
 
 	// remove directory and all contents
 	case fi.Mode().IsDir():
@@ -285,7 +285,7 @@ func (f *Filter) Documents() (Collection, error) {
 	var col Collection
 	// ensure there is a collection to read
 	if f.collection.collection_name == "" {
-		return col, fmt.Errorf("Missing collection - unable to record location!")
+		return col, fmt.Errorf("missing collection - unable to record location")
 	}
 
 	dir := filepath.Join(f.driver.dir, f.collection.collection_name)

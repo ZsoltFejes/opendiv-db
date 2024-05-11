@@ -28,17 +28,23 @@ func main() {
 	}
 	WORKDIR = filepath.Dir(ex)
 
-	// Read Config
-	// TODO Check if enviornment variables are defined, use them
-	// TODO If no then read config file
-	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "config.json"))
-	config := Config{}
+	// Read config file located at in the same directory as the executable
+	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "db_config.json"))
+	config := Config{Encryption_key: "", DB_Path: ""}
+	// If  there was an error reading the file fall back to using enviornment variables.
 	if err != nil {
-		l("Unable to read config.json file", true, true)
+		l("Unable to read config.json file. Using Enviornemnt variables.", false, true)
+		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
+		config.DB_Path = os.Getenv("OPENDIV_DB_PATH")
+	} else {
+		err = json.Unmarshal(config_b, &config)
+		if err != nil {
+			l("Unable to unmarshal configuration file! Make sure it is a valid json file and the values are correct. Have a look at README.md for the example configuration.", true, true)
+		}
 	}
-	err = json.Unmarshal(config_b, &config)
-	if err != nil {
-		l("Unable to unmarshal config file", true, true)
+	// Check db path is specified.
+	if config.DB_Path == "" {
+		l("No Database path was provided! Make sure db_config.json is in the same directory as the executable or 'OPENDIV_DB_PATH' enviornemnt variable is set.", true, true)
 	}
 
 	// Check Encryption key length
@@ -46,11 +52,13 @@ func main() {
 		l("Encryption key length must be 32 characters!", true, true)
 	}
 
+	// Create database driver
 	DB, err = NewDB(config.DB_Path, config)
 	if err != nil {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
 
+	// Testing //
 	start := time.Now()
 
 	err = DB.Collection("Test").Delete("")
