@@ -25,10 +25,6 @@ export OPENDIV_DB_CACHE_TIMEOUT=600
 ```
 
 ## TODO
-- Add database caching.
-    - Time to live and number of documents.
-    - Max size for a document is 1 mb so if 1024 then that is 1 GB max cache size.
-    - Caching should have a go routine to clean up expired cache and to clean up older cache when new is added
 - Add users support
     - Add user permissions
     - User rules to
