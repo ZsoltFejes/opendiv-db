@@ -21,14 +21,18 @@ type (
 		encryption_key string
 		mutex          sync.Mutex
 		mutexes        map[string]*sync.Mutex
-		Cache          map[string]Cached_Doc
+		Cache          Cache
 		dir            string // the directory where scribble will create the database
 	}
 
+	Cache struct {
+		Documents     map[string]Cached_Doc
+		Cache_timeout int // Cache timeout in seconds
+	}
+
 	Cached_Doc struct {
-		Cached_at     time.Time
-		Collection_id string
-		Document      Document
+		Cached_at time.Time
+		Document  Document
 	}
 
 	Collection_ref struct {
@@ -77,6 +81,7 @@ func NewDB(dir string, config Config) (*Driver, error) {
 		encryption_key: config.Encryption_key,
 		dir:            dir,
 		mutexes:        make(map[string]*sync.Mutex),
+		Cache:          Cache{Cache_timeout: config.Cache_timeout},
 	}
 
 	// if the database already exists, just use it
@@ -110,9 +115,13 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 		return Document{}, fmt.Errorf("missing collection - no place to save record")
 	}
 
+	if strings.Contains(c.collection_name, "/") || strings.Contains(c.collection_name, `\`) {
+		return Document{}, fmt.Errorf(`unsupported character in collection name, collection name can't contain '/' or '\'`)
+	}
+
 	// ensure there is a document (name) to save record as
 	if document == "" {
-		document = uuid.NewString()
+		return Document{}, fmt.Errorf(`document id is empty`)
 	}
 
 	mutex := c.driver.getOrCreateMutex(c.collection_name)
@@ -165,6 +174,10 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 		return Document{}, fmt.Errorf("missing collection - no place to save record")
 	}
 
+	if strings.Contains(c.collection_name, "/") || strings.Contains(c.collection_name, `\`) {
+		return Document{}, fmt.Errorf(`unsupported character in collection name, collection name can't contain '/' or '\'`)
+	}
+
 	// ensure there is a document (name) to save record as
 	if id == "" {
 		return Document{}, fmt.Errorf("missing document - unable to save record (no name)")
@@ -213,6 +226,10 @@ func (c *Collection_ref) Documents() ([]Document, error) {
 		return col, fmt.Errorf("missing collection - unable to record location")
 	}
 
+	if strings.Contains(c.collection_name, "/") || strings.Contains(c.collection_name, `\`) {
+		return col, fmt.Errorf(`unsupported character in collection name, collection name can't contain '/' or '\'`)
+	}
+
 	// check to see if collection (directory) exists
 	dir := filepath.Join(c.driver.dir, c.collection_name)
 	if _, err := stat(dir); err != nil {
@@ -246,6 +263,14 @@ func (c *Collection_ref) Delete(id string) error {
 	mutex := c.driver.getOrCreateMutex(c.collection_name)
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	if c.collection_name == "" {
+		return fmt.Errorf("missing collection - unable to record location")
+	}
+
+	if strings.Contains(c.collection_name, "/") || strings.Contains(c.collection_name, `\`) {
+		return fmt.Errorf(`unsupported character in collection name, collection name can't contain '/' or '\'`)
+	}
 
 	//
 	dir := filepath.Join(c.driver.dir, path)
@@ -414,4 +439,33 @@ func (d *Driver) getOrCreateMutex(collection string) *sync.Mutex {
 	}
 
 	return m
+}
+
+func (c *Cache) Add(coll_ref Collection_ref, doc Document) error {
+	cached_doc := Cached_Doc{Cached_at: time.Now(), Document: doc}
+	c.Documents[coll_ref.collection_name+"/"+doc.Id] = cached_doc
+	return nil
+}
+
+func (c *Cache) GetDoc(collection_name string, document_id string) (Document, bool) {
+	if val, ok := c.Documents[collection_name+"/"+document_id]; ok {
+		return val.Document, true
+	}
+	return Document{}, false
+}
+
+func (c *Cache) Delete(collection_name string, document_id string) {
+	delete(c.Documents, collection_name+"/"+document_id)
+}
+
+func (c *Cache) Check() {
+	timeout := time.Second * time.Duration(c.Cache_timeout)
+	if timeout == 0 {
+		timeout = time.Duration(time.Minute * 5)
+	}
+	for id, value := range c.Documents {
+		if value.Cached_at.After(time.Now().Add(timeout)) {
+			delete(c.Documents, id)
+		}
+	}
 }

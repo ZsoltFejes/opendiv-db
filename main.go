@@ -18,7 +18,8 @@ var (
 
 type Config struct {
 	Encryption_key string `json:"encryption_key,omitempty"`
-	DB_Path        string `json:"db_path,omitempty"`
+	DB_path        string `json:"db_path,omitempty"`
+	Cache_timeout  int    `json:"cache_timeout,omitempty"`
 }
 
 func l(message string, fatal bool, public bool) {
@@ -39,12 +40,12 @@ func main() {
 
 	// Read config file located at in the same directory as the executable
 	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "db_config.json"))
-	config := Config{Encryption_key: "", DB_Path: ""}
+	config := Config{Encryption_key: "", DB_path: ""}
 	// If  there was an error reading the file fall back to using enviornment variables.
 	if err != nil {
 		l("Unable to read config.json file. Using Environment variables.", false, true)
 		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
-		config.DB_Path = os.Getenv("OPENDIV_DB_PATH")
+		config.DB_path = os.Getenv("OPENDIV_DB_PATH")
 	} else {
 		err = json.Unmarshal(config_b, &config)
 		if err != nil {
@@ -52,7 +53,7 @@ func main() {
 		}
 	}
 	// Check db path is specified.
-	if config.DB_Path == "" {
+	if config.DB_path == "" {
 		l("No Database path was provided! Make sure db_config.json is in the same directory as the executable or 'OPENDIV_DB_PATH' environment variable is set.", true, true)
 	}
 
@@ -62,7 +63,7 @@ func main() {
 	}
 
 	// Create database driver
-	DB, err = NewDB(config.DB_Path, config)
+	DB, err = NewDB(config.DB_path, config)
 	if err != nil {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
