@@ -27,7 +27,7 @@ type (
 
 	Cache struct {
 		Documents     map[string]Cached_Doc
-		Cache_timeout int // Cache timeout in seconds
+		Cache_timeout float64 // Cache timeout in seconds
 	}
 
 	Cached_Doc struct {
@@ -81,7 +81,7 @@ func NewDB(dir string, config Config) (*Driver, error) {
 		encryption_key: config.Encryption_key,
 		dir:            dir,
 		mutexes:        make(map[string]*sync.Mutex),
-		Cache:          Cache{Cache_timeout: config.Cache_timeout},
+		Cache:          Cache{Cache_timeout: config.Cache_timeout, Documents: make(map[string]Cached_Doc)},
 	}
 
 	// if the database already exists, just use it
@@ -146,6 +146,10 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 		return Document{}, err
 	}
 
+	err = c.driver.Cache.Add(*c, doc)
+	if err != nil {
+		return Document{}, err
+	}
 	if c.driver.encryption_key != "" {
 		ct := EncryptAES(c.driver.encryption_key, b)
 		// write marshaled data to the temp file
@@ -185,6 +189,10 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 
 	if strings.Contains(id, "/") || strings.Contains(id, `\`) {
 		return Document{}, fmt.Errorf(`unsupported character in document ID! Document ID can't contain '/' or '\'`)
+	}
+
+	if doc, in_cache := c.driver.Cache.GetDoc(c.collection_name, id); in_cache {
+		return doc, nil
 	}
 
 	// check to see if collection (directory) exists
@@ -284,9 +292,11 @@ func (c *Collection_ref) Delete(id string) error {
 	// remove directory and all contents
 	case fi.Mode().IsDir():
 		return os.RemoveAll(dir)
+		// TODO: Retrieve all files and delete them from cache
 
 	// remove file
 	case fi.Mode().IsRegular():
+		c.driver.Cache.Delete(c.collection_name, id)
 		return os.RemoveAll(dir)
 	}
 
@@ -464,8 +474,15 @@ func (c *Cache) Check() {
 		timeout = time.Duration(time.Minute * 5)
 	}
 	for id, value := range c.Documents {
-		if value.Cached_at.After(time.Now().Add(timeout)) {
+		if value.Cached_at.Add(timeout).Before(time.Now()) {
 			delete(c.Documents, id)
 		}
+	}
+}
+
+func (c *Cache) RunCachePurge() {
+	for {
+		c.Check()
+		time.Sleep(time.Second * 5)
 	}
 }

@@ -10,7 +10,8 @@ Create a file db_config.json in the same directory as the executable.
 ```
 {
     "encryption_key": "@dGsxvgCvTucs324REKp6kz2-v86RYR7",
-    "db_path": "db"
+    "db_path": "db",
+    "cache_timeout": 600
 }
 ```
 
@@ -20,6 +21,7 @@ Same values as the configuration file but set as enviornemnt variables.
 ```
 export OPENDIV_DB_ENCRYPTION_KEY=@dGsxvgCvTucs324REKp6kz2-v86RYR7
 export OPENDIV_DB_PATH=db
+export OPENDIV_DB_CACHE_TIMEOUT=600
 ```
 
 ## TODO

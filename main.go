@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -17,9 +18,9 @@ var (
 )
 
 type Config struct {
-	Encryption_key string `json:"encryption_key,omitempty"`
-	DB_path        string `json:"db_path,omitempty"`
-	Cache_timeout  int    `json:"cache_timeout,omitempty"`
+	Encryption_key string  `json:"encryption_key,omitempty"`
+	DB_path        string  `json:"db_path,omitempty"`
+	Cache_timeout  float64 `json:"cache_timeout,omitempty"`
 }
 
 func l(message string, fatal bool, public bool) {
@@ -46,6 +47,11 @@ func main() {
 		l("Unable to read config.json file. Using Environment variables.", false, true)
 		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
 		config.DB_path = os.Getenv("OPENDIV_DB_PATH")
+		timeout, err := strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_TIMEOUT"), 64)
+		if err != nil {
+			config.Cache_timeout = 0
+		}
+		config.Cache_timeout = timeout
 	} else {
 		err = json.Unmarshal(config_b, &config)
 		if err != nil {
@@ -67,6 +73,7 @@ func main() {
 	if err != nil {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
+	go DB.Cache.RunCachePurge()
 
 	// Testing //
 	start := time.Now()
@@ -102,4 +109,6 @@ func main() {
 	}
 	end := time.Now()
 	fmt.Println(end.Sub(start))
+
+	fmt.Println(config)
 }
