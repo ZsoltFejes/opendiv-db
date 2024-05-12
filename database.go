@@ -1,14 +1,10 @@
 package main
 
-// TODO: Rework workflow so it is db.collection that returns a reference that allows filters, all documents or a single document by name
-// Similar to how it is done for Firestore
-
 import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +21,14 @@ type (
 		encryption_key string
 		mutex          sync.Mutex
 		mutexes        map[string]*sync.Mutex
+		Cache          map[string]Cached_Doc
 		dir            string // the directory where scribble will create the database
+	}
+
+	Cached_Doc struct {
+		Cached_at     time.Time
+		Collection_id string
+		Document      Document
 	}
 
 	Collection_ref struct {
@@ -37,9 +40,6 @@ type (
 		Updated_at time.Time
 		Hash       string // Hash of "Data" bytes
 		Data       json.RawMessage
-	}
-	Collection struct {
-		Documents []Document
 	}
 
 	Filter struct {
@@ -63,14 +63,6 @@ func (d Document) DataTo(v interface{}) error {
 func GetMD5Hash(text string) string {
 	hash := md5.Sum([]byte(text))
 	return hex.EncodeToString(hash[:])
-}
-
-func l(message string, fatal bool, public bool) {
-	if (public || *debug) && !fatal {
-		log.Println(message)
-	} else if fatal {
-		log.Fatalln(message)
-	}
 }
 
 // New creates a new scribble database at the desired directory location, and
@@ -214,8 +206,8 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 
 // ReadAll documents from a collection; this is returned as a Collection
 // there is no way of knowing what type the record is.
-func (c *Collection_ref) Documents() (Collection, error) {
-	var col Collection
+func (c *Collection_ref) Documents() ([]Document, error) {
+	var col []Document
 	// ensure there is a collection to read
 	if c.collection_name == "" {
 		return col, fmt.Errorf("missing collection - unable to record location")
@@ -240,7 +232,7 @@ func (c *Collection_ref) Documents() (Collection, error) {
 		}
 
 		// append read file
-		col.Documents = append(col.Documents, doc)
+		col = append(col, doc)
 	}
 
 	// unmarhsal the read files as a comma delimited byte array
@@ -281,8 +273,8 @@ func (c *Collection_ref) Where(field string, operator string, value string) *Fil
 	return &Filter{collection: c, driver: c.driver, field: field, operator: operator, value: value}
 }
 
-func (f *Filter) Documents() (Collection, error) {
-	var col Collection
+func (f *Filter) Documents() ([]Document, error) {
+	var col []Document
 	// ensure there is a collection to read
 	if f.collection.collection_name == "" {
 		return col, fmt.Errorf("missing collection - unable to record location")
@@ -333,11 +325,11 @@ func (f *Filter) Documents() (Collection, error) {
 						switch f.operator {
 						case "==":
 							if real == filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						case "!=":
 							if real != filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						}
 					}
@@ -347,27 +339,27 @@ func (f *Filter) Documents() (Collection, error) {
 						switch f.operator {
 						case "==":
 							if real == f.value {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						case "<=":
 							if real <= filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						case ">=":
 							if real >= filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						case "!=":
 							if real != filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						case "<":
 							if real < filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						case ">":
 							if real > filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						}
 					default:
@@ -379,11 +371,11 @@ func (f *Filter) Documents() (Collection, error) {
 						switch f.operator {
 						case "==":
 							if real == filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						case "!=":
 							if real != filter_t {
-								col.Documents = append(col.Documents, doc)
+								col = append(col, doc)
 							}
 						}
 					}

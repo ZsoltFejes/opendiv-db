@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -18,6 +19,14 @@ var (
 type Config struct {
 	Encryption_key string `json:"encryption_key,omitempty"`
 	DB_Path        string `json:"db_path,omitempty"`
+}
+
+func l(message string, fatal bool, public bool) {
+	if (public || *debug) && !fatal {
+		log.Println(message)
+	} else if fatal {
+		log.Fatalln(message)
+	}
 }
 
 func main() {
@@ -85,7 +94,7 @@ func main() {
 	if err != nil {
 		print(err.Error())
 	}
-	for _, doc := range col.Documents {
+	for _, doc := range col {
 		var data map[string]interface{}
 		doc.DataTo(&data)
 		fmt.Println(data)
