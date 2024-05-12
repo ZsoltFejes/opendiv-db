@@ -55,6 +55,17 @@ type (
 	}
 )
 
+func ValidateID(id string) error {
+	if id == "" {
+		return fmt.Errorf("empty value")
+	}
+
+	if strings.Contains(id, "/") || strings.Contains(id, `\`) {
+		return fmt.Errorf(`unsupported character, can't contain '/' or '\'`)
+	}
+	return nil
+}
+
 func (d Document) DataTo(v interface{}) error {
 	doc_b, err := json.Marshal(d.Data)
 	if err != nil {
@@ -109,19 +120,15 @@ func (c *Collection_ref) Add(v interface{}) (Document, error) {
 // Write locks the database and attempts to write the record to the database under
 // the [collection] specified with the [document] name given
 func (c *Collection_ref) Write(document string, v interface{}) (Document, error) {
-
-	// ensure there is a place to save record
-	if c.collection_name == "" {
-		return Document{}, fmt.Errorf("missing collection - no place to save record")
-	}
-
-	if strings.Contains(c.collection_name, "/") || strings.Contains(c.collection_name, `\`) {
-		return Document{}, fmt.Errorf(`unsupported character in collection name, collection name can't contain '/' or '\'`)
+	err := ValidateID(c.collection_name)
+	if err != nil {
+		return Document{}, fmt.Errorf(`collection name validation error - ` + err.Error())
 	}
 
 	// ensure there is a document (name) to save record as
-	if document == "" {
-		return Document{}, fmt.Errorf(`document id is empty`)
+	err = ValidateID(document)
+	if err != nil {
+		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
 	mutex := c.driver.getOrCreateMutex(c.collection_name)
@@ -174,21 +181,15 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 // Read a document from the database
 func (c *Collection_ref) Document(id string) (Document, error) {
 	// ensure there is a place to save record
-	if c.collection_name == "" {
-		return Document{}, fmt.Errorf("missing collection - no place to save record")
-	}
-
-	if strings.Contains(c.collection_name, "/") || strings.Contains(c.collection_name, `\`) {
-		return Document{}, fmt.Errorf(`unsupported character in collection name, collection name can't contain '/' or '\'`)
+	err := ValidateID(c.collection_name)
+	if err != nil {
+		return Document{}, fmt.Errorf(`collection name validation error - ` + err.Error())
 	}
 
 	// ensure there is a document (name) to save record as
-	if id == "" {
-		return Document{}, fmt.Errorf("missing document - unable to save record (no name)")
-	}
-
-	if strings.Contains(id, "/") || strings.Contains(id, `\`) {
-		return Document{}, fmt.Errorf(`unsupported character in document ID! Document ID can't contain '/' or '\'`)
+	err = ValidateID(id)
+	if err != nil {
+		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
 	if doc, in_cache := c.driver.Cache.GetDoc(c.collection_name, id); in_cache {
@@ -260,25 +261,30 @@ func (c *Collection_ref) Documents() ([]Document, error) {
 		col = append(col, doc)
 	}
 
-	// unmarhsal the read files as a comma delimited byte array
+	// unmarshal the read files as a comma delimited byte array
 	return col, nil
 }
 
 // Delete locks that database and then attempts to remove the collection/document
 // specified by [path]
 func (c *Collection_ref) Delete(id string) error {
+	err := ValidateID(c.collection_name)
+	if err != nil {
+		return fmt.Errorf(`collection name validation error - ` + err.Error())
+	}
+
+	// ensure there is a document (name) to save record as
+	if id != "" {
+		err = ValidateID(id)
+		if err != nil {
+			return fmt.Errorf(`document ID validation error - ` + err.Error())
+		}
+	}
+
 	path := filepath.Join(c.collection_name, id)
 	mutex := c.driver.getOrCreateMutex(c.collection_name)
 	mutex.Lock()
 	defer mutex.Unlock()
-
-	if c.collection_name == "" {
-		return fmt.Errorf("missing collection - unable to record location")
-	}
-
-	if strings.Contains(c.collection_name, "/") || strings.Contains(c.collection_name, `\`) {
-		return fmt.Errorf(`unsupported character in collection name, collection name can't contain '/' or '\'`)
-	}
 
 	//
 	dir := filepath.Join(c.driver.dir, path)
