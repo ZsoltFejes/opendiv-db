@@ -25,6 +25,7 @@ export OPENDIV_DB_CACHE_TIMEOUT=600
 ```
 
 ## TODO
+- Add cache document limit (1 document max size 1MB)
 - Add users support
     - Add user permissions
     - User rules to

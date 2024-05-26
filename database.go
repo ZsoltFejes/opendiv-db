@@ -297,8 +297,13 @@ func (c *Collection_ref) Delete(id string) error {
 
 	// remove directory and all contents
 	case fi.Mode().IsDir():
+		// read all the files in the transaction.Collection;
+		files, _ := os.ReadDir(dir)
+		// Loop through each file to delete it from cache
+		for _, file := range files {
+			c.driver.Cache.Delete(c.collection_name, file.Name())
+		}
 		return os.RemoveAll(dir)
-		// TODO: Retrieve all files and delete them from cache
 
 	// remove file
 	case fi.Mode().IsRegular():
@@ -350,80 +355,84 @@ func (f *Filter) Documents() ([]Document, error) {
 			">":  true}
 
 		// Check to make sure correct condition is provided
-		if operators[f.operator] {
-			var d map[string]interface{}
-			if err := json.Unmarshal(doc.Data, &d); err != nil {
-				panic(err)
-			}
-			// Find field
-			field := d[f.field]
-			// If field is found do comparison
-			if field != nil {
-				switch real := field.(type) {
-				case string:
-					switch filter_t := f.value.(type) {
-					case string:
-						switch f.operator {
-						case "==":
-							if real == filter_t {
-								col = append(col, doc)
-							}
-						case "!=":
-							if real != filter_t {
-								col = append(col, doc)
-							}
-						}
+		if _, ok := operators[f.operator]; !ok {
+			return col, fmt.Errorf("Filter '" + f.operator + "' is not supported. Accepted conditions ==, <=, >=, !=, <, > ")
+		}
+
+		// Marshal document data into generic map for comparison
+		var d map[string]interface{}
+		if err := json.Unmarshal(doc.Data, &d); err != nil {
+			panic(err)
+		}
+
+		// Find field
+		field := d[f.field]
+		// Check for provided field
+		if field == nil {
+			return col, fmt.Errorf("field not provided")
+		}
+
+		switch real := field.(type) {
+		case string:
+			switch filter_t := f.value.(type) {
+			case string:
+				switch f.operator {
+				case "==":
+					if real == filter_t {
+						col = append(col, doc)
 					}
-				case float64:
-					switch filter_t := f.value.(type) {
-					case float64:
-						switch f.operator {
-						case "==":
-							if real == f.value {
-								col = append(col, doc)
-							}
-						case "<=":
-							if real <= filter_t {
-								col = append(col, doc)
-							}
-						case ">=":
-							if real >= filter_t {
-								col = append(col, doc)
-							}
-						case "!=":
-							if real != filter_t {
-								col = append(col, doc)
-							}
-						case "<":
-							if real < filter_t {
-								col = append(col, doc)
-							}
-						case ">":
-							if real > filter_t {
-								col = append(col, doc)
-							}
-						}
-					default:
-						return col, fmt.Errorf("Filter Value is not float64. For more details: https://pkg.go.dev/encoding/json#Unmarshal")
-					}
-				case bool:
-					switch filter_t := f.value.(type) {
-					case bool:
-						switch f.operator {
-						case "==":
-							if real == filter_t {
-								col = append(col, doc)
-							}
-						case "!=":
-							if real != filter_t {
-								col = append(col, doc)
-							}
-						}
+				case "!=":
+					if real != filter_t {
+						col = append(col, doc)
 					}
 				}
 			}
-		} else {
-			return col, fmt.Errorf("Filter '" + f.operator + "' is not supported. Accepted conditions ==, <=, >=, !=, <, > ")
+		case float64:
+			switch filter_t := f.value.(type) {
+			case float64:
+				switch f.operator {
+				case "==":
+					if real == f.value {
+						col = append(col, doc)
+					}
+				case "<=":
+					if real <= filter_t {
+						col = append(col, doc)
+					}
+				case ">=":
+					if real >= filter_t {
+						col = append(col, doc)
+					}
+				case "!=":
+					if real != filter_t {
+						col = append(col, doc)
+					}
+				case "<":
+					if real < filter_t {
+						col = append(col, doc)
+					}
+				case ">":
+					if real > filter_t {
+						col = append(col, doc)
+					}
+				}
+			default:
+				return col, fmt.Errorf("Filter Value is not float64. For more details: https://pkg.go.dev/encoding/json#Unmarshal")
+			}
+		case bool:
+			switch filter_t := f.value.(type) {
+			case bool:
+				switch f.operator {
+				case "==":
+					if real == filter_t {
+						col = append(col, doc)
+					}
+				case "!=":
+					if real != filter_t {
+						col = append(col, doc)
+					}
+				}
+			}
 		}
 	}
 	return col, nil
