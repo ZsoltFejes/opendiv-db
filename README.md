@@ -6,13 +6,12 @@ Docuemnts can be encripted if encryption_key is specified.
 The project uses either a configuration file that is must be located at under the same directory as the executable or envionrment variables.
 
 ### Configuration file example
-Create a file db_config.json in the same directory as the executable.
+Create a file db_config.yml in the same directory as the executable.
 ```
-{
-    "encryption_key": "@dGsxvgCvTucs324REKp6kz2-v86RYR7",
-    "db_path": "db",
-    "cache_timeout": 600
-}
+encryption_key: "@dGsxvgCvTucs324REKp6kz2-v86RYR7"
+db_path: "db"
+cache_timeout: 600
+cache_limit: 10
 ```
 
 ### Enviornemnt variables example

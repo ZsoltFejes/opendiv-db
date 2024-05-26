@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -9,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -18,9 +19,10 @@ var (
 )
 
 type Config struct {
-	Encryption_key string  `json:"encryption_key,omitempty"`
-	DB_path        string  `json:"db_path,omitempty"`
-	Cache_timeout  float64 `json:"cache_timeout,omitempty"`
+	Encryption_key string  `yaml:"encryption_key,omitempty"`
+	DB_path        string  `yaml:"db_path,omitempty"`
+	Cache_timeout  float64 `yaml:"cache_timeout,omitempty"`
+	Cache_limit    float64 `yaml:"cache_limit,omitempty"`
 }
 
 func l(message string, fatal bool, public bool) {
@@ -40,20 +42,24 @@ func main() {
 	WORKDIR = filepath.Dir(ex)
 
 	// Read config file located at in the same directory as the executable
-	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "db_config.json"))
+	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "db_config.yml"))
 	config := Config{Encryption_key: "", DB_path: ""}
 	// If  there was an error reading the file fall back to using enviornment variables.
 	if err != nil {
 		l("Unable to read config.json file. Using Environment variables.", false, true)
 		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
 		config.DB_path = os.Getenv("OPENDIV_DB_PATH")
+		config.Cache_limit, err = strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_LIMIT"), 64)
+		if err != nil {
+			config.Cache_limit = 0
+		}
 		timeout, err := strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_TIMEOUT"), 64)
 		if err != nil {
 			config.Cache_timeout = 0
 		}
 		config.Cache_timeout = timeout
 	} else {
-		err = json.Unmarshal(config_b, &config)
+		err = yaml.Unmarshal(config_b, &config)
 		if err != nil {
 			l("Unable to unmarshal configuration file! Make sure it is a valid json file and the values are correct. Have a look at README.md for the example configuration.", true, true)
 		}
@@ -98,6 +104,23 @@ func main() {
 	if err != nil {
 		print(err.Error())
 	}
+
+	test3 := make(map[string]interface{})
+	test3["Name"] = "test3"
+	test3["Number"] = 3
+	_, err = DB.Collection("Test").Add(test3)
+	if err != nil {
+		print(err.Error())
+	}
+
+	test4 := make(map[string]interface{})
+	test4["Name"] = "test4"
+	test4["Number"] = 4
+	_, err = DB.Collection("Test").Add(test4)
+	if err != nil {
+		print(err.Error())
+	}
+
 	col, err := DB.Collection("Test").Where("Name", "==", "test1").Documents()
 	if err != nil {
 		print(err.Error())

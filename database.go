@@ -26,8 +26,9 @@ type (
 	}
 
 	Cache struct {
-		Documents     map[string]Cached_Doc
-		Cache_timeout float64 // Cache timeout in seconds
+		documents map[string]Cached_Doc //Cached documents
+		Timeout   time.Duration         // Cache timeout in seconds
+		Limit     float64               // Maximum number of cached documents
 	}
 
 	Cached_Doc struct {
@@ -87,12 +88,26 @@ func NewDB(dir string, config Config) (*Driver, error) {
 	//
 	dir = filepath.Clean(dir)
 
-	//
+	// Check for timeout, if not set by user set default
+	var cache_limit float64
+	if config.Cache_limit == 0 {
+		cache_limit = 1000
+	} else {
+		cache_limit = config.Cache_limit
+	}
+
+	// Check for limit, if not set by user set default
+	cache_timeout := time.Second * time.Duration(config.Cache_timeout)
+	if cache_timeout == 0 {
+		cache_timeout = time.Duration(time.Minute * 5)
+	}
+
+	// Build driver
 	driver := Driver{
 		encryption_key: config.Encryption_key,
 		dir:            dir,
 		mutexes:        make(map[string]*sync.Mutex),
-		Cache:          Cache{Cache_timeout: config.Cache_timeout, Documents: make(map[string]Cached_Doc)},
+		Cache:          Cache{Timeout: cache_timeout, Limit: cache_limit, documents: make(map[string]Cached_Doc)},
 	}
 
 	// if the database already exists, just use it
@@ -467,30 +482,51 @@ func (d *Driver) getOrCreateMutex(collection string) *sync.Mutex {
 }
 
 func (c *Cache) Add(coll_ref Collection_ref, doc Document) error {
+	// Check how many documents are in cache
+	num_of_cached_docs := len(c.documents)
+
+	// If there are more or equal to the cache limit
+	if num_of_cached_docs >= int(c.Limit) {
+		oldest_doc := Cached_Doc{}
+
+		// Loop through all cached documents and find the one that was cached the longest
+		for _, doc := range c.documents {
+			if oldest_doc.Cached_at.IsZero() {
+				oldest_doc = doc
+			} else {
+				if doc.Cached_at.Before(oldest_doc.Cached_at) {
+					oldest_doc = doc
+				}
+			}
+		}
+		c.Delete(coll_ref.collection_name, oldest_doc.Document.Id)
+	}
 	cached_doc := Cached_Doc{Cached_at: time.Now(), Document: doc}
-	c.Documents[coll_ref.collection_name+"/"+doc.Id] = cached_doc
+	c.documents[coll_ref.collection_name+"/"+doc.Id] = cached_doc
 	return nil
 }
 
 func (c *Cache) GetDoc(collection_name string, document_id string) (Document, bool) {
-	if val, ok := c.Documents[collection_name+"/"+document_id]; ok {
+	if val, ok := c.documents[collection_name+"/"+document_id]; ok {
+		val.Cached_at = time.Now()
+		c.documents[collection_name+"/"+document_id] = val
 		return val.Document, true
 	}
 	return Document{}, false
 }
 
 func (c *Cache) Delete(collection_name string, document_id string) {
-	delete(c.Documents, collection_name+"/"+document_id)
+	delete(c.documents, collection_name+"/"+document_id)
 }
 
 func (c *Cache) check() {
-	timeout := time.Second * time.Duration(c.Cache_timeout)
+	timeout := time.Second * time.Duration(c.Timeout)
 	if timeout == 0 {
 		timeout = time.Duration(time.Minute * 5)
 	}
-	for id, value := range c.Documents {
+	for id, value := range c.documents {
 		if value.Cached_at.Add(timeout).Before(time.Now()) {
-			delete(c.Documents, id)
+			delete(c.documents, id)
 		}
 	}
 }
