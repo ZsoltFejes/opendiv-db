@@ -23,10 +23,16 @@ export OPENDIV_DB_PATH=db
 export OPENDIV_DB_CACHE_TIMEOUT=600
 ```
 
+## Database Filter
+
+The database currently has functionality to filter based on the following field types
+
+- JSON string - Go String
+    - If a string is RFC 3339 (Go time.RFC3339Nano) formatted it can be used to filter date time
+- JSON bool - Go bool
+- JSON number - Go float64
+
 ## TODO
-- Add time comparison
-    - Add test for time comparison
-- Add boolean test
 - Document version control
 - Document TLS
 - Add users support

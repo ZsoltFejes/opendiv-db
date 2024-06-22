@@ -397,16 +397,41 @@ func (f *Filter) Documents() ([]Document, error) {
 		case string:
 			switch filter_t := f.value.(type) {
 			case string:
-				switch f.operator {
-				case "==":
-					if real == filter_t {
-						col = append(col, doc)
+				// Check if we want to filter based on time
+				document_parsed_time, err := time.Parse(time.RFC3339Nano, real)
+				if err == nil {
+					filter_parsed_time, err := time.Parse(time.RFC3339Nano, filter_t)
+					if err != nil {
+						return col, fmt.Errorf("document filed is RFC3339 formatted time but the filter isn't " + err.Error())
 					}
-				case "!=":
-					if real != filter_t {
-						col = append(col, doc)
+					switch f.operator {
+					case "<":
+						if document_parsed_time.Before(filter_parsed_time) {
+							col = append(col, doc)
+						}
+					case ">":
+						if document_parsed_time.After(filter_parsed_time) {
+							col = append(col, doc)
+						}
+					default:
+						return col, fmt.Errorf("unsupported operator " + f.operator + " for time")
+					}
+				} else {
+					switch f.operator {
+					case "==":
+						if real == filter_t {
+							col = append(col, doc)
+						}
+					case "!=":
+						if real != filter_t {
+							col = append(col, doc)
+						}
+					default:
+						return col, fmt.Errorf("unsupported operator " + f.operator + " for string")
 					}
 				}
+			default:
+				return col, fmt.Errorf("document field and filter value are mismatched")
 			}
 		case float64:
 			switch filter_t := f.value.(type) {
@@ -452,7 +477,11 @@ func (f *Filter) Documents() ([]Document, error) {
 					if real != filter_t {
 						col = append(col, doc)
 					}
+				default:
+					return col, fmt.Errorf("unsupported operator " + f.operator + " for bool")
 				}
+			default:
+				return col, fmt.Errorf("document field and filter value are mismatched")
 			}
 		}
 	}

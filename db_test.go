@@ -6,9 +6,10 @@ import (
 )
 
 type TestObject struct {
-	String string  `yaml:"string,omitempty"`
-	Number float64 `yaml:"number,omitempty"`
-	Bool   bool    `yaml:"number,omitempty"`
+	String string
+	Number float64
+	Bool   bool
+	Time   time.Time
 }
 
 func ClearTestDatabase(DB *Driver, t *testing.T) {
@@ -72,25 +73,25 @@ func TestFilter(t *testing.T) {
 
 	ClearTestDatabase(DB, t)
 
-	test1 := TestObject{String: "test1", Number: 1, Bool: true}
+	test1 := TestObject{String: "test1", Number: 1, Bool: true, Time: time.Now()}
 	_, err = DB.Collection("Test").Add(test1)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	test2 := TestObject{String: "test2", Number: 2, Bool: true}
+	test2 := TestObject{String: "test2", Number: 2, Bool: true, Time: time.Now().Add(time.Second * 10)}
 	_, err = DB.Collection("Test").Add(test2)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	test3 := TestObject{String: "test3", Number: 3, Bool: true}
+	test3 := TestObject{String: "test3", Number: 3, Bool: true, Time: time.Now().Add(time.Second * 10)}
 	_, err = DB.Collection("Test").Add(test3)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	test4 := TestObject{String: "test4", Number: 4, Bool: false}
+	test4 := TestObject{String: "test4", Number: 4, Bool: false, Time: time.Now().Add(time.Second * 1)}
 	_, err = DB.Collection("Test").Add(test4)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -186,8 +187,45 @@ func TestFilter(t *testing.T) {
 	///////////////
 	// Test Time //
 	///////////////
-	// TODO
-	//t.Log("Testing time filter")
+	t.Log("Testing time filter")
+	test_time := time.Now()
+	col, err = DB.Collection("Test").Where("Time", "<", test_time.Format(time.RFC3339Nano)).Documents()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	if len(col) != 1 {
+		t.Fatal("Returned number of documents are not what is expected")
+	}
+	for _, doc := range col {
+		got_doc := TestObject{}
+		err := doc.DataTo(&got_doc)
+		if err != nil {
+			t.Fatal("Unable to un-marshall test document to object")
+		}
+		if !got_doc.Time.Before(test_time) {
+			t.Fatal("Object found filtered in incorrectly")
+		}
+	}
+
+	col, err = DB.Collection("Test").Where("Time", ">", test_time.Format(time.RFC3339Nano)).Documents()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	if len(col) != 3 {
+		t.Fatal("Returned number of documents are not what is expected")
+	}
+	for _, doc := range col {
+		got_doc := TestObject{}
+		err := doc.DataTo(&got_doc)
+		if err != nil {
+			t.Fatal("Unable to un-marshall test document to object")
+		}
+		if !got_doc.Time.After(test_time) {
+			t.Fatal("Object found filtered in incorrectly")
+		}
+	}
 
 	ClearTestDatabase(DB, t)
 }
