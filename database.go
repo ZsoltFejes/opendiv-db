@@ -21,7 +21,7 @@ type (
 		encryption_key string
 		mutex          sync.Mutex
 		mutexes        map[string]*sync.Mutex
-		Cache          Cache
+		cache          Cache
 		dir            string // the directory where scribble will create the database
 	}
 
@@ -43,6 +43,7 @@ type (
 	Document struct {
 		Id         string
 		Updated_at time.Time
+		FromCache  bool
 		Hash       string // Hash of "Data" bytes
 		Data       json.RawMessage
 	}
@@ -84,8 +85,6 @@ func GetMD5Hash(text string) string {
 // New creates a new scribble database at the desired directory location, and
 // returns a *Driver to then use for interacting with the database
 func NewDB(dir string, config Config) (*Driver, error) {
-
-	//
 	dir = filepath.Clean(dir)
 
 	// Check for timeout, if not set by user set default
@@ -107,7 +106,7 @@ func NewDB(dir string, config Config) (*Driver, error) {
 		encryption_key: config.Encryption_key,
 		dir:            dir,
 		mutexes:        make(map[string]*sync.Mutex),
-		Cache:          Cache{Timeout: cache_timeout, Limit: cache_limit, documents: make(map[string]Cached_Doc)},
+		cache:          Cache{Timeout: cache_timeout, Limit: cache_limit, documents: make(map[string]Cached_Doc)},
 	}
 
 	// if the database already exists, just use it
@@ -119,6 +118,10 @@ func NewDB(dir string, config Config) (*Driver, error) {
 	// if the database doesn't exist create it
 	//l("Creating database at '"+dir+"'...", false, true)
 	return &driver, os.MkdirAll(dir, 0755)
+}
+
+func (d *Driver) RunCachePurge() {
+	d.cache.RunCachePurge()
 }
 
 func (d *Driver) Collection(name string) *Collection_ref {
@@ -146,7 +149,7 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
-	mutex := c.driver.getOrCreateMutex(c.collection_name)
+	mutex := c.driver.getOrCreateMutex(c.collection_name + "/" + document)
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -162,13 +165,13 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 	if err != nil {
 		return Document{}, err
 	}
-	doc := Document{Id: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:]))}
+	doc := Document{Id: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:])), FromCache: false}
 	b, err := json.MarshalIndent(doc, "", "\t")
 	if err != nil {
 		return Document{}, err
 	}
 
-	err = c.driver.Cache.Add(*c, doc)
+	err = c.driver.cache.Add(*c, doc)
 	if err != nil {
 		return Document{}, err
 	}
@@ -193,7 +196,7 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 	return doc, nil
 }
 
-// Read a document from the database
+// Read a document from the database or Cache
 func (c *Collection_ref) Document(id string) (Document, error) {
 	// ensure there is a place to save record
 	err := ValidateID(c.collection_name)
@@ -207,7 +210,7 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
-	if doc, in_cache := c.driver.Cache.GetDoc(c.collection_name, id); in_cache {
+	if doc, in_cache := c.driver.cache.GetDoc(c.collection_name, id); in_cache {
 		return doc, nil
 	}
 
@@ -319,13 +322,13 @@ func (c *Collection_ref) Delete(id string) error {
 		files, _ := os.ReadDir(dir)
 		// Loop through each file to delete it from cache
 		for _, file := range files {
-			c.driver.Cache.Delete(c.collection_name, file.Name())
+			c.driver.cache.Delete(c.collection_name, file.Name())
 		}
 		return os.RemoveAll(dir)
 
 	// remove file
 	case fi.Mode().IsRegular():
-		c.driver.Cache.Delete(c.collection_name, id)
+		c.driver.cache.Delete(c.collection_name, id)
 		return os.RemoveAll(dir)
 	}
 
@@ -504,6 +507,7 @@ func (c *Cache) Add(coll_ref Collection_ref, doc Document) error {
 		}
 		c.Delete(coll_ref.collection_name, oldest_doc.Document.Id)
 	}
+	doc.FromCache = true
 	cached_doc := Cached_Doc{Cached_at: time.Now(), Document: doc}
 	c.documents[coll_ref.collection_name+"/"+doc.Id] = cached_doc
 	return nil
@@ -523,12 +527,8 @@ func (c *Cache) Delete(collection_name string, document_id string) {
 }
 
 func (c *Cache) check() {
-	timeout := time.Second * time.Duration(c.Timeout)
-	if timeout == 0 {
-		timeout = time.Duration(time.Minute * 5)
-	}
 	for id, value := range c.documents {
-		if value.Cached_at.Add(timeout).Before(time.Now()) {
+		if value.Cached_at.Add(c.Timeout).Before(time.Now()) {
 			delete(c.documents, id)
 		}
 	}
@@ -538,6 +538,6 @@ func (c *Cache) check() {
 func (c *Cache) RunCachePurge() {
 	for {
 		c.check()
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 1)
 	}
 }

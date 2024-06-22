@@ -18,10 +18,10 @@ var (
 )
 
 type Config struct {
-	Encryption_key string  `yaml:"encryption_key,omitempty"`
-	DB_path        string  `yaml:"db_path,omitempty"`
-	Cache_timeout  float64 `yaml:"cache_timeout,omitempty"`
-	Cache_limit    float64 `yaml:"cache_limit,omitempty"`
+	Encryption_key string  `yaml:"encryption_key,omitempty"` // Database encryption key must be 32 characters long for AES-256
+	Path           string  `yaml:"path,omitempty"`           // Path to the where the collections and documents will be placed
+	Cache_timeout  float64 `yaml:"cache_timeout,omitempty"`  // Database cache timeout in seconds
+	Cache_limit    float64 `yaml:"cache_limit,omitempty"`    // Maximum number of documents cached at a given time, when exceeded the oldest document is removed
 }
 
 func l(message string, fatal bool, public bool) {
@@ -33,15 +33,14 @@ func l(message string, fatal bool, public bool) {
 }
 
 func LoadConfig() (Config, error) {
-
 	// Read config file located at in the same directory as the executable
 	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "db_config.yml"))
-	config := Config{Encryption_key: "", DB_path: ""}
-	// If  there was an error reading the file fall back to using enviornment variables.
+	config := Config{Encryption_key: "", Path: ""}
+	// If  there was an error reading the file fall back to using environment variables
 	if err != nil {
 		l("Unable to read config.json file. Using Environment variables.", false, true)
 		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
-		config.DB_path = os.Getenv("OPENDIV_DB_PATH")
+		config.Path = os.Getenv("OPENDIV_DB_PATH")
 		config.Cache_limit, err = strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_LIMIT"), 64)
 		if err != nil {
 			config.Cache_limit = 0
@@ -59,7 +58,7 @@ func LoadConfig() (Config, error) {
 	}
 
 	// Check db path is specified.
-	if config.DB_path == "" {
+	if config.Path == "" {
 		return Config{}, fmt.Errorf("no database path was provided")
 	}
 
@@ -84,11 +83,11 @@ func main() {
 	}
 
 	// Create database driver
-	DB, err = NewDB(config.DB_path, config)
+	DB, err = NewDB(config.Path, config)
 	if err != nil {
 		l("Unable to create DB! "+err.Error(), true, true)
 	}
-	go DB.Cache.RunCachePurge()
+	go DB.RunCachePurge()
 
 	// Add infinite loop or actions
 }
