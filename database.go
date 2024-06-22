@@ -112,12 +112,12 @@ func NewDB(dir string, config Config) (*Driver, error) {
 
 	// if the database already exists, just use it
 	if _, err := os.Stat(dir); err == nil {
-		l("Using '"+dir+"' (database already exists)", false, true)
+		//l("Using '"+dir+"' (database already exists)", false, true)
 		return &driver, nil
 	}
 
 	// if the database doesn't exist create it
-	l("Creating scribble database at '"+dir+"'...", false, true)
+	//l("Creating database at '"+dir+"'...", false, true)
 	return &driver, os.MkdirAll(dir, 0755)
 }
 
@@ -307,8 +307,11 @@ func (c *Collection_ref) Delete(id string) error {
 	switch fi, err := stat(dir); {
 
 	// if fi is nil or error is not nil return
-	case fi == nil, err != nil:
-		return fmt.Errorf("unable to find file or directory named %v", path)
+	case fi == nil:
+		return nil
+
+	case err != nil:
+		return fmt.Errorf(err.Error())
 
 	// remove directory and all contents
 	case fi.Mode().IsDir():
@@ -330,7 +333,7 @@ func (c *Collection_ref) Delete(id string) error {
 }
 
 // Creates Filter object so do simple queries
-func (c *Collection_ref) Where(field string, operator string, value string) *Filter {
+func (c *Collection_ref) Where(field string, operator string, value any) *Filter {
 	return &Filter{collection: c, driver: c.driver, field: field, operator: operator, value: value}
 }
 

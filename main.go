@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -33,13 +32,7 @@ func l(message string, fatal bool, public bool) {
 	}
 }
 
-func main() {
-	// Set working directory
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	WORKDIR = filepath.Dir(ex)
+func LoadConfig() (Config, error) {
 
 	// Read config file located at in the same directory as the executable
 	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "db_config.yml"))
@@ -61,17 +54,33 @@ func main() {
 	} else {
 		err = yaml.Unmarshal(config_b, &config)
 		if err != nil {
-			l("Unable to unmarshal configuration file! Make sure it is a valid json file and the values are correct. Have a look at README.md for the example configuration.", true, true)
+			return Config{}, fmt.Errorf("unable to unmarshal configuration file")
 		}
 	}
+
 	// Check db path is specified.
 	if config.DB_path == "" {
-		l("No Database path was provided! Make sure db_config.json is in the same directory as the executable or 'OPENDIV_DB_PATH' environment variable is set.", true, true)
+		return Config{}, fmt.Errorf("no database path was provided")
 	}
 
 	// Check Encryption key length
 	if len(config.Encryption_key) > 0 && len(config.Encryption_key) != 32 {
-		l("Encryption key length must be 32 characters!", true, true)
+		return Config{}, fmt.Errorf("encryption key length must be 32 characters")
+	}
+	return config, nil
+}
+
+func main() {
+	// Set working directory
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	WORKDIR = filepath.Dir(ex)
+
+	config, err := LoadConfig()
+	if err != nil {
+		l(err.Error(), true, true)
 	}
 
 	// Create database driver
@@ -81,57 +90,5 @@ func main() {
 	}
 	go DB.Cache.RunCachePurge()
 
-	// Testing //
-	start := time.Now()
-
-	err = DB.Collection("Test").Delete("")
-	if err != nil {
-		print(err.Error())
-	}
-
-	test1 := make(map[string]interface{})
-	test1["Name"] = "test1"
-	test1["Number"] = 1
-	_, err = DB.Collection("Test").Add(test1)
-	if err != nil {
-		print(err.Error())
-	}
-
-	test2 := make(map[string]interface{})
-	test2["Name"] = "test2"
-	test2["Number"] = 2
-	_, err = DB.Collection("Test").Add(test2)
-	if err != nil {
-		print(err.Error())
-	}
-
-	test3 := make(map[string]interface{})
-	test3["Name"] = "test3"
-	test3["Number"] = 3
-	_, err = DB.Collection("Test").Add(test3)
-	if err != nil {
-		print(err.Error())
-	}
-
-	test4 := make(map[string]interface{})
-	test4["Name"] = "test4"
-	test4["Number"] = 4
-	_, err = DB.Collection("Test").Add(test4)
-	if err != nil {
-		print(err.Error())
-	}
-
-	col, err := DB.Collection("Test").Where("Name", "==", "test1").Documents()
-	if err != nil {
-		print(err.Error())
-	}
-	for _, doc := range col {
-		var data map[string]interface{}
-		doc.DataTo(&data)
-		fmt.Println(data)
-	}
-	end := time.Now()
-	fmt.Println(end.Sub(start))
-
-	fmt.Println(config)
+	// Add infinite loop or actions
 }
