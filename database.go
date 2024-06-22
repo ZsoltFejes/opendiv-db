@@ -402,7 +402,7 @@ func (f *Filter) Documents() ([]Document, error) {
 				if err == nil {
 					filter_parsed_time, err := time.Parse(time.RFC3339Nano, filter_t)
 					if err != nil {
-						return col, fmt.Errorf("document filed is RFC3339 formatted time but the filter isn't " + err.Error())
+						return col, fmt.Errorf("document filed is RFC3339 formatted time but the filter isn't, unable to parse filter to date time")
 					}
 					switch f.operator {
 					case "<":
