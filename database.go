@@ -413,6 +413,10 @@ func (f *Filter) Documents() ([]Document, error) {
 						if document_parsed_time.After(filter_parsed_time) {
 							col = append(col, doc)
 						}
+					case "==":
+						if document_parsed_time.Equal(filter_parsed_time) {
+							col = append(col, doc)
+						}
 					default:
 						return col, fmt.Errorf("unsupported operator " + f.operator + " for time")
 					}
