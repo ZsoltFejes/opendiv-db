@@ -24,12 +24,14 @@ export OPENDIV_DB_CACHE_TIMEOUT=600
 ```
 
 ## TODO
-- Add cache document limit (1 document max size 1MB)
+- Add time comparison
+    - Add test for time comparison
+- Add boolean test
+- Document version control
+- Document TLS
 - Add users support
     - Add user permissions
-    - User rules to
+    - User rules to control access to documents and collections
+        - Use tags for access
 - Add REST functions
     - Make sure permissions is enforced
-- Add time comparison
-- Document version controll
-- Document TLS
