@@ -29,6 +29,7 @@ func TestWriteAndRead(t *testing.T) {
 	}
 
 	// Create database driver
+	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
 		t.Fatal("Unable to create DB! " + err.Error())
@@ -66,6 +67,7 @@ func TestEncryption(t *testing.T) {
 		l(err.Error(), true, true)
 	}
 	config.Encryption_key = ""
+	config.Salt = ""
 	// Create database driver
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
@@ -105,7 +107,7 @@ func TestEncryption(t *testing.T) {
 	if err != nil {
 		l(err.Error(), true, true)
 	}
-
+	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	// Create database driver
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
@@ -150,6 +152,7 @@ func TestFilter(t *testing.T) {
 	}
 
 	// Create database driver
+	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
 		t.Fatal("Unable to create DB! " + err.Error())
@@ -326,6 +329,7 @@ func TestCache(t *testing.T) {
 	}
 
 	// Create database driver
+	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
 		t.Fatal("Unable to create DB! " + err.Error())

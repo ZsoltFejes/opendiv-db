@@ -25,7 +25,12 @@ export OPENDIV_DB_CACHE_TIMEOUT=600
 
 ## Encryption
 
-AES-256 encryption method is used for encryption. The encryption key is a SHA-256 hash of the encryption key that is provided in the configuration or the environment variables.
+AES-256 encryption method is used for encryption. The encryption key is a SHA-256 hash of the encryption key that is provided in the configuration or the environment variables and the salt that is built into the binary.
+
+To build a salt into the binary run the following:
+```
+go build -ldflags "-X main.Salt=<this_is_your_salt>"
+```
 
 ## Database Filter
 
@@ -37,7 +42,6 @@ The database currently has functionality to filter based on the following field 
 - JSON number - Go float64
 
 ## TODO
-- Add SALT feature using a flag during build so when the binary is built a SALT can be built into the binary. This is to prevent the data decryption with the encryption key and the data in case of theft.
 - Document version control
 - Document TLS
 - Add users support
