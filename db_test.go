@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,11 +16,12 @@ type TestObject struct {
 	Time   time.Time
 }
 
-func ClearTestDatabase(DB *Driver, t *testing.T) {
+func ClearTestDatabase(DB *Driver) error {
 	err := DB.Collection("Test").Delete("")
 	if err != nil {
-		t.Fatal("Unable to clear test database " + err.Error())
+		return fmt.Errorf("Unable to clear test database " + err.Error())
 	}
+	return nil
 }
 
 func TestWriteAndRead(t *testing.T) {
@@ -35,7 +37,7 @@ func TestWriteAndRead(t *testing.T) {
 		t.Fatal("Unable to create DB! " + err.Error())
 	}
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 
 	t.Log("Testing read and write operation")
 	test1 := TestObject{String: "test1", Number: 1}
@@ -58,7 +60,7 @@ func TestWriteAndRead(t *testing.T) {
 		t.Fatal("Returned object return does not match the test object!")
 	}
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 }
 
 func TestEncryption(t *testing.T) {
@@ -74,7 +76,7 @@ func TestEncryption(t *testing.T) {
 		t.Fatal("Unable to create DB! " + err.Error())
 	}
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 
 	t.Log("Running non encrypted test")
 	test1 := TestObject{String: "test1", Number: 1, Bool: true, Time: time.Now()}
@@ -100,7 +102,7 @@ func TestEncryption(t *testing.T) {
 	if err != nil {
 		t.Fatal("Unable to unmarshall document: " + err.Error())
 	}
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 
 	t.Log("Running encrypted test")
 	config, err = LoadConfig()
@@ -142,7 +144,7 @@ func TestEncryption(t *testing.T) {
 		t.Fatal("Unable to unmarshall document: " + err.Error())
 	}
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 }
 
 func TestFilter(t *testing.T) {
@@ -160,7 +162,7 @@ func TestFilter(t *testing.T) {
 	// Cache not needed right now for this test
 	// go DB.Cache.RunCachePurge()
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 
 	test1 := TestObject{String: "test1", Number: 1, Bool: true, Time: time.Now()}
 	_, err = DB.Collection("Test").Add(test1)
@@ -316,7 +318,7 @@ func TestFilter(t *testing.T) {
 		}
 	}
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 }
 
 func TestCache(t *testing.T) {
@@ -337,7 +339,7 @@ func TestCache(t *testing.T) {
 	// Cache not needed right now for this test
 	go DB.RunCachePurge()
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 
 	t.Log("Testing document timeout purge")
 	test1 := TestObject{String: "test1", Number: 1}
@@ -380,7 +382,7 @@ func TestCache(t *testing.T) {
 		t.Fatal("Document was returned from Cache")
 	}
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 	t.Log("Timeout purge test completed")
 	t.Log("Testing cache overflow")
 
@@ -423,5 +425,5 @@ func TestCache(t *testing.T) {
 		t.Fatal("Returned number of cached documents was unexpected")
 	}
 
-	ClearTestDatabase(DB, t)
+	ClearTestDatabase(DB)
 }

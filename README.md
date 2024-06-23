@@ -41,6 +41,18 @@ The database currently has functionality to filter based on the following field 
 - JSON bool - Go bool
 - JSON number - Go float64
 
+## Testing
+
+To run module testing:
+```
+go test -v
+```
+
+To run benchmarks
+```
+go test -benchmem -bench . -benchtime 10s
+```
+
 ## TODO
 - Document version control
 - Document TLS

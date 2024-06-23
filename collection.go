@@ -37,7 +37,7 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
-	mutex := c.driver.getOrCreateMutex(c.collection_name + "/" + document)
+	mutex := c.driver.getOrCreateMutex(c.collection_name)
 	mutex.Lock()
 	defer mutex.Unlock()
 

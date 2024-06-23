@@ -1,12 +1,16 @@
 package main
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 type (
 	Cache struct {
 		documents map[string]Cached_Doc //Cached documents
 		Timeout   time.Duration         // Cache timeout in seconds
 		Limit     float64               // Maximum number of cached documents
+		mutex     sync.Mutex
 	}
 
 	Cached_Doc struct {
@@ -16,6 +20,9 @@ type (
 )
 
 func (c *Cache) Add(coll_ref Collection_ref, doc Document) error {
+	// Obtain Mutex
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	// Check how many documents are in cache
 	num_of_cached_docs := len(c.documents)
 
@@ -55,6 +62,8 @@ func (c *Cache) Delete(collection_name string, document_id string) {
 }
 
 func (c *Cache) check() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	for id, value := range c.documents {
 		if value.Cached_at.Add(c.Timeout).Before(time.Now()) {
 			delete(c.documents, id)

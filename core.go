@@ -79,7 +79,7 @@ func NewDB(dir string, config Config) (*Driver, error) {
 
 	// hash encryption key to SHA256
 	var encryption_key []byte
-	if config.Encryption_key != "" {
+	if config.Encryption_key != "" || config.Salt != "" {
 		var hash [32]byte = sha256.Sum256([]byte(config.Encryption_key + config.Salt))
 		encryption_key = hash[:]
 	}
