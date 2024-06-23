@@ -12,10 +12,9 @@ import (
 )
 
 var (
-	WORKDIR string
-	debug   = flag.Bool("debug", false, "Set process to debug")
-	DB      *Driver
-	Salt    string
+	debug = flag.Bool("debug", false, "Set process to debug")
+	DB    *Driver
+	Salt  string
 )
 
 type Config struct {
@@ -36,7 +35,7 @@ func l(message string, fatal bool, public bool) {
 
 func LoadConfig() (Config, error) {
 	// Read config file located at in the same directory as the executable
-	config_b, err := os.ReadFile(filepath.Join(WORKDIR, "db_config.yml"))
+	config_b, err := os.ReadFile(filepath.Join("db_config.yml"))
 	config := Config{Encryption_key: "", Path: "", Salt: ""}
 	// If  there was an error reading the file fall back to using environment variables
 	if err != nil {
@@ -68,13 +67,6 @@ func LoadConfig() (Config, error) {
 }
 
 func main() {
-	// Set working directory
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	WORKDIR = filepath.Dir(ex)
-
 	config, err := LoadConfig()
 	if err != nil {
 		l(err.Error(), true, true)
