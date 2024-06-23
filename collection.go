@@ -49,31 +49,30 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return Document{}, err
 	}
+	// marshal document to JSON with tab indents
 	v_b, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
 		return Document{}, err
 	}
+	// create document wrapping the data bytes
 	doc := Document{Id: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(string(v_b[:])), FromCache: false}
 	b, err := json.MarshalIndent(doc, "", "\t")
 	if err != nil {
 		return Document{}, err
 	}
 
+	// add the new document to cache
 	err = c.driver.cache.Add(*c, doc)
 	if err != nil {
 		return Document{}, err
 	}
-	if c.driver.encryption_key != "" {
-		ct := EncryptAES(c.driver.encryption_key, b)
-		// write marshaled data to the temp file
-		if err := os.WriteFile(tmpPath, ct, 0644); err != nil {
-			return Document{}, err
-		}
-	} else {
-		// write marshaled data to the temp file
-		if err := os.WriteFile(tmpPath, b, 0644); err != nil {
-			return Document{}, err
-		}
+	// check if encryption is enabled and encrypt entire document before writing it to disk
+	if len(c.driver.encryption_key) != 0 {
+		b = EncryptAES(c.driver.encryption_key, b)
+	}
+	// write document bytes to the disk
+	if err := os.WriteFile(tmpPath, b, 0644); err != nil {
+		return Document{}, err
 	}
 
 	// move final file into place
@@ -98,6 +97,7 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
+	// check if document exist in cache, if yes return the document from cache
 	if doc, in_cache := c.driver.cache.GetDoc(c.collection_name, id); in_cache {
 		return doc, nil
 	}
@@ -120,9 +120,14 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 		return Document{}, err
 	}
 
-	if c.driver.encryption_key != "" {
-		b = DecryptAES(c.driver.encryption_key, b[:])
+	// if encryption is enabled decrypt document bytes
+	if len(c.driver.encryption_key) != 0 {
+		b, err = DecryptAES(c.driver.encryption_key, b[:])
+		if err != nil {
+			return Document{}, fmt.Errorf(err.Error())
+		}
 	}
+	// unmarshall bytes into Document
 	doc := Document{}
 	err = json.Unmarshal(b, &doc)
 	if err != nil {

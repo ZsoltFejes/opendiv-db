@@ -3,11 +3,11 @@ package main
 import (
 	"bytes"
 	"crypto/aes"
+	"fmt"
 )
 
-func EncryptAES(key string, data []byte) []byte {
-	keyBytes := []byte(key)
-	c, err := aes.NewCipher(keyBytes)
+func EncryptAES(key []byte, data []byte) []byte {
+	c, err := aes.NewCipher(key)
 	if err != nil {
 		l("Unable to create AES Cipher! "+err.Error(), true, true)
 	}
@@ -43,12 +43,11 @@ func EncryptAES(key string, data []byte) []byte {
 	return bytes.Trim(out, "\x00")
 }
 
-func DecryptAES(key string, ciphertext []byte) []byte {
-	keyBytes := []byte(key)
+func DecryptAES(key []byte, ciphertext []byte) ([]byte, error) {
 
-	c, err := aes.NewCipher(keyBytes)
+	c, err := aes.NewCipher(key)
 	if err != nil {
-		l("Unable to create AES Cipher "+err.Error(), true, true)
+		return ciphertext, fmt.Errorf("Unable to create AES Cipher " + err.Error())
 	}
 
 	pt := make([]byte, 1048576)
@@ -79,5 +78,5 @@ func DecryptAES(key string, ciphertext []byte) []byte {
 		}
 	}
 
-	return bytes.Trim(pt, "\x00")
+	return bytes.Trim(pt, "\x00"), nil
 }

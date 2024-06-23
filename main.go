@@ -62,10 +62,6 @@ func LoadConfig() (Config, error) {
 		return Config{}, fmt.Errorf("no database path was provided")
 	}
 
-	// Check Encryption key length
-	if len(config.Encryption_key) > 0 && len(config.Encryption_key) != 32 {
-		return Config{}, fmt.Errorf("encryption key length must be 32 characters")
-	}
 	return config, nil
 }
 

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -52,6 +55,89 @@ func TestWriteAndRead(t *testing.T) {
 
 	if test1_got.String != test1.String || test1_got.Number != test1.Number {
 		t.Fatal("Returned object return does not match the test object!")
+	}
+
+	ClearTestDatabase(DB, t)
+}
+
+func TestEncryption(t *testing.T) {
+	config, err := LoadConfig()
+	if err != nil {
+		l(err.Error(), true, true)
+	}
+	config.Encryption_key = ""
+	// Create database driver
+	DB, err = NewDB(config.Path, config)
+	if err != nil {
+		t.Fatal("Unable to create DB! " + err.Error())
+	}
+
+	ClearTestDatabase(DB, t)
+
+	t.Log("Running non encrypted test")
+	test1 := TestObject{String: "test1", Number: 1, Bool: true, Time: time.Now()}
+	doc_created, err := DB.Collection("Test").Add(test1)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Check to see if file exists
+	record := filepath.Join(config.Path, "test", doc_created.Id)
+	if _, err := stat(record); err != nil {
+		t.Fatal("Document '" + doc_created.Id + "' doesn't exist in 'test'!")
+	}
+
+	// read record from database
+	b, err := os.ReadFile(record)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	doc := Document{}
+	err = json.Unmarshal(b, &doc)
+	if err != nil {
+		t.Fatal("Unable to unmarshall document: " + err.Error())
+	}
+	ClearTestDatabase(DB, t)
+
+	t.Log("Running encrypted test")
+	config, err = LoadConfig()
+	if err != nil {
+		l(err.Error(), true, true)
+	}
+
+	// Create database driver
+	DB, err = NewDB(config.Path, config)
+	if err != nil {
+		t.Fatal("Unable to create DB! " + err.Error())
+	}
+
+	doc_created, err = DB.Collection("Test").Add(test1)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Check to see if file exists
+	record = filepath.Join(config.Path, "test", doc_created.Id)
+	if _, err := stat(record); err != nil {
+		t.Fatal("Document '" + doc_created.Id + "' doesn't exist in 'test'!")
+	}
+
+	// read record from database
+	b, err = os.ReadFile(record)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	b, err = DecryptAES(DB.encryption_key, b[:])
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	doc = Document{}
+	err = json.Unmarshal(b, &doc)
+	if err != nil {
+		t.Fatal("Unable to unmarshall document: " + err.Error())
 	}
 
 	ClearTestDatabase(DB, t)

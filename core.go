@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,7 +17,7 @@ type (
 	// Driver is what is used to interact with the scribble database. It runs
 	// transactions, and provides log output
 	Driver struct {
-		encryption_key string
+		encryption_key []byte
 		mutex          sync.Mutex
 		mutexes        map[string]*sync.Mutex
 		cache          Cache
@@ -76,9 +77,16 @@ func NewDB(dir string, config Config) (*Driver, error) {
 		cache_timeout = time.Duration(time.Minute * 5)
 	}
 
+	// hash encryption key to SHA256
+	var encryption_key []byte
+	if config.Encryption_key != "" {
+		var hash [32]byte = sha256.Sum256([]byte(config.Encryption_key))
+		encryption_key = hash[:]
+	}
+
 	// Build driver
 	driver := Driver{
-		encryption_key: config.Encryption_key,
+		encryption_key: encryption_key[:],
 		dir:            dir,
 		mutexes:        make(map[string]*sync.Mutex),
 		cache:          Cache{Timeout: cache_timeout, Limit: cache_limit, documents: make(map[string]Cached_Doc)},
