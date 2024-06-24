@@ -20,7 +20,7 @@ func ClearTestDatabase(DB *Driver) error {
 	return os.RemoveAll(test_dir)
 }
 
-func TestWriteAndRead(t *testing.T) {
+func Test_CRUD(t *testing.T) {
 	config, err := LoadConfig()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -30,7 +30,7 @@ func TestWriteAndRead(t *testing.T) {
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
-		t.Fatal("Unable to create DB! " + err.Error())
+		t.Fatal("unable to create DB! " + err.Error())
 	}
 
 	err = ClearTestDatabase(DB)
@@ -38,7 +38,7 @@ func TestWriteAndRead(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	t.Log("Testing read and write operation")
+	t.Log("testing write operation")
 	test1 := TestObject{String: "test1", Number: 1}
 	doc, err := DB.Collection("Test").Add(test1)
 	if err != nil {
@@ -52,11 +52,44 @@ func TestWriteAndRead(t *testing.T) {
 	test1_got := TestObject{}
 	err = doc.DataTo(&test1_got)
 	if err != nil {
-		t.Fatal("Unable to marshall test document to object!")
+		t.Fatal("unable to marshall test document to object")
 	}
 
-	if test1_got.String != test1.String || test1_got.Number != test1.Number {
-		t.Fatal("Returned object return does not match the test object!")
+	if test1_got != test1 {
+		t.Fatal("returned object return does not match the test object")
+	}
+
+	t.Log("testing update operation")
+	test1_got.String = "test1_updated"
+	test1_got.Number = 10
+	doc, err = DB.Collection("Test").Write(doc.Id, test1_got)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	doc, err = DB.Collection("Test").Document(doc.Id)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	test1_updated_got := TestObject{}
+	err = doc.DataTo(&test1_updated_got)
+	if err != nil {
+		t.Fatal("unable to marshall test document to object")
+	}
+
+	if test1_updated_got != test1_got {
+		t.Fatal("returned object return does not match the test object")
+	}
+
+	t.Log("testing delete operation")
+	err = DB.Collection("Test").Delete(doc.Id)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	doc, err = DB.Collection("Test").Document(doc.Id)
+	if err == nil {
+		t.Fatal("document '" + doc.Id + "' still exists")
 	}
 
 	err = ClearTestDatabase(DB)
@@ -65,7 +98,7 @@ func TestWriteAndRead(t *testing.T) {
 	}
 }
 
-func TestEncryption(t *testing.T) {
+func Test_Encryption(t *testing.T) {
 	config, err := LoadConfig()
 	if err != nil {
 		l(err.Error(), true, true)
@@ -75,7 +108,7 @@ func TestEncryption(t *testing.T) {
 	// Create database driver
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
-		t.Fatal("Unable to create DB! " + err.Error())
+		t.Fatal("unable to create DB " + err.Error())
 	}
 
 	err = ClearTestDatabase(DB)
@@ -83,7 +116,7 @@ func TestEncryption(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	t.Log("Running non encrypted test")
+	t.Log("running non encrypted test")
 	test1 := TestObject{String: "test1", Number: 1, Bool: true, Time: time.Now()}
 	doc_created, err := DB.Collection("Test").Add(test1)
 	if err != nil {
@@ -93,7 +126,7 @@ func TestEncryption(t *testing.T) {
 	// Check to see if file exists
 	record := filepath.Join(config.Path, "test", doc_created.Id)
 	if _, err := stat(record); err != nil {
-		t.Fatal("Document '" + doc_created.Id + "' doesn't exist in 'test'!")
+		t.Fatal("document '" + doc_created.Id + "' doesn't exist in 'test'")
 	}
 
 	// read record from database
@@ -105,14 +138,14 @@ func TestEncryption(t *testing.T) {
 	doc := Document{}
 	err = json.Unmarshal(b, &doc)
 	if err != nil {
-		t.Fatal("Unable to unmarshall document: " + err.Error())
+		t.Fatal("unable to unmarshall document: " + err.Error())
 	}
 	err = ClearTestDatabase(DB)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	t.Log("Running encrypted test")
+	t.Log("running encrypted test")
 	config, err = LoadConfig()
 	if err != nil {
 		l(err.Error(), true, true)
@@ -121,7 +154,7 @@ func TestEncryption(t *testing.T) {
 	// Create database driver
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
-		t.Fatal("Unable to create DB! " + err.Error())
+		t.Fatal("unable to create DB! " + err.Error())
 	}
 
 	doc_created, err = DB.Collection("Test").Add(test1)
@@ -132,7 +165,7 @@ func TestEncryption(t *testing.T) {
 	// Check to see if file exists
 	record = filepath.Join(config.Path, "test", doc_created.Id)
 	if _, err := stat(record); err != nil {
-		t.Fatal("Document '" + doc_created.Id + "' doesn't exist in 'test'!")
+		t.Fatal("document '" + doc_created.Id + "' doesn't exist in 'test'")
 	}
 
 	// read record from database
@@ -149,7 +182,7 @@ func TestEncryption(t *testing.T) {
 	doc = Document{}
 	err = json.Unmarshal(b, &doc)
 	if err != nil {
-		t.Fatal("Unable to unmarshall document: " + err.Error())
+		t.Fatal("unable to un-marshall document: " + err.Error())
 	}
 
 	err = ClearTestDatabase(DB)
@@ -158,7 +191,7 @@ func TestEncryption(t *testing.T) {
 	}
 }
 
-func TestFilter(t *testing.T) {
+func Test_Filter(t *testing.T) {
 	config, err := LoadConfig()
 	if err != nil {
 		l(err.Error(), true, true)
@@ -168,7 +201,7 @@ func TestFilter(t *testing.T) {
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
-		t.Fatal("Unable to create DB! " + err.Error())
+		t.Fatal("unable to create DB " + err.Error())
 	}
 	// Cache not needed right now for this test
 	// go DB.Cache.RunCachePurge()
@@ -205,69 +238,69 @@ func TestFilter(t *testing.T) {
 	/////////////////
 	// Test Number //
 	/////////////////
-	t.Log("Testing string number")
+	t.Log("testing string number")
 	var test_number float64 = 2
 	col, err := DB.Collection("Test").Where("Number", ">", test_number).Documents()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	if len(col) != 2 {
-		t.Fatal("Returned number of documents are not what is expected")
+		t.Fatal("returned number of documents are not what is expected")
 	}
 	for _, doc := range col {
 		got_doc := TestObject{}
 		err := doc.DataTo(&got_doc)
 		if err != nil {
-			t.Fatal("Unable to un-marshall test document to object")
+			t.Fatal("unable to un-marshall test document to object")
 		}
 		if got_doc.Number <= test_number {
-			t.Fatal("Object found filtered in incorrectly")
+			t.Fatal("object found filtered in incorrectly")
 		}
 	}
 
 	/////////////////
 	// Test String //
 	/////////////////
-	t.Log("Testing string filter")
+	t.Log("testing string filter")
 	var test_string string = "test1"
 	col, err = DB.Collection("Test").Where("String", "==", test_string).Documents()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	if len(col) != 1 {
-		t.Fatal("Returned number of documents are not what is expected")
+		t.Fatal("returned number of documents are not what is expected")
 	}
 	for _, doc := range col {
 		got_doc := TestObject{}
 		err := doc.DataTo(&got_doc)
 		if err != nil {
-			t.Fatal("Unable to un-marshall test document to object")
+			t.Fatal("unable to un-marshall test document to object")
 		}
 		if got_doc.String != test_string {
-			t.Fatal("Object found filtered in incorrectly")
+			t.Fatal("object found filtered in incorrectly")
 		}
 	}
 
 	///////////////
 	// Test Bool //
 	///////////////
-	t.Log("Testing bool filter")
+	t.Log("testing bool filter")
 	test_bool := true
 	col, err = DB.Collection("Test").Where("Bool", "==", test_bool).Documents()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	if len(col) != 3 {
-		t.Fatal("Returned number of documents are not what is expected")
+		t.Fatal("returned number of documents are not what is expected")
 	}
 	for _, doc := range col {
 		got_doc := TestObject{}
 		err := doc.DataTo(&got_doc)
 		if err != nil {
-			t.Fatal("Unable to un-marshall test document to object")
+			t.Fatal("unable to un-marshall test document to object")
 		}
 		if got_doc.Bool != test_bool {
-			t.Fatal("Object found filtered in incorrectly")
+			t.Fatal("object found filtered in incorrectly")
 		}
 	}
 
@@ -277,22 +310,22 @@ func TestFilter(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	if len(col) != 1 {
-		t.Fatal("Returned number of documents are not what is expected")
+		t.Fatal("returned number of documents are not what is expected")
 	}
 	for _, doc := range col {
 		got_doc := TestObject{}
 		err := doc.DataTo(&got_doc)
 		if err != nil {
-			t.Fatal("Unable to un-marshall test document to object")
+			t.Fatal("unable to un-marshall test document to object")
 		}
 		if got_doc.Bool != test_bool {
-			t.Fatal("Object found filtered in incorrectly")
+			t.Fatal("object found filtered in incorrectly")
 		}
 	}
 	///////////////
 	// Test Time //
 	///////////////
-	t.Log("Testing time filter")
+	t.Log("testing time filter")
 	test_time := time.Now()
 	col, err = DB.Collection("Test").Where("Time", "<", test_time.Format(time.RFC3339Nano)).Documents()
 	if err != nil {
@@ -300,16 +333,16 @@ func TestFilter(t *testing.T) {
 	}
 
 	if len(col) != 1 {
-		t.Fatal("Returned number of documents are not what is expected")
+		t.Fatal("returned number of documents are not what is expected")
 	}
 	for _, doc := range col {
 		got_doc := TestObject{}
 		err := doc.DataTo(&got_doc)
 		if err != nil {
-			t.Fatal("Unable to un-marshall test document to object")
+			t.Fatal("unable to un-marshall test document to object")
 		}
 		if !got_doc.Time.Before(test_time) {
-			t.Fatal("Object found filtered in incorrectly")
+			t.Fatal("object found filtered in incorrectly")
 		}
 	}
 
@@ -319,16 +352,16 @@ func TestFilter(t *testing.T) {
 	}
 
 	if len(col) != 3 {
-		t.Fatal("Returned number of documents are not what is expected")
+		t.Fatal("returned number of documents are not what is expected")
 	}
 	for _, doc := range col {
 		got_doc := TestObject{}
 		err := doc.DataTo(&got_doc)
 		if err != nil {
-			t.Fatal("Unable to un-marshall test document to object")
+			t.Fatal("unable to un-marshall test document to object")
 		}
 		if !got_doc.Time.After(test_time) {
-			t.Fatal("Object found filtered in incorrectly")
+			t.Fatal("object found filtered in incorrectly")
 		}
 	}
 
@@ -338,7 +371,7 @@ func TestFilter(t *testing.T) {
 	}
 }
 
-func TestCache(t *testing.T) {
+func Test_Cache(t *testing.T) {
 	config, err := LoadConfig()
 	//Set cache timeout for short for testing
 	config.Cache_timeout = 5
@@ -351,7 +384,7 @@ func TestCache(t *testing.T) {
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	DB, err = NewDB(config.Path, config)
 	if err != nil {
-		t.Fatal("Unable to create DB! " + err.Error())
+		t.Fatal("unable to create DB " + err.Error())
 	}
 	// Cache not needed right now for this test
 	go DB.RunCachePurge()
@@ -361,7 +394,7 @@ func TestCache(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	t.Log("Testing document timeout purge")
+	t.Log("testing document timeout purge")
 	test1 := TestObject{String: "test1", Number: 1}
 	test1_doc, err := DB.Collection("Test").Add(test1)
 	if err != nil {
@@ -375,10 +408,10 @@ func TestCache(t *testing.T) {
 	}
 
 	if doc_got_cache.FromCache != true {
-		t.Fatal("Document wasn't returned from Cache")
+		t.Fatal("document wasn't returned from Cache")
 	}
 
-	t.Log("Sleep to wait to make sure document stays in cache, 2 seconds")
+	t.Log("sleep to wait to make sure document stays in cache, 2 seconds")
 	time.Sleep(time.Second * 2)
 
 	doc_got_cache, err = DB.Collection("Test").Document(test1_doc.Id)
@@ -387,10 +420,10 @@ func TestCache(t *testing.T) {
 	}
 
 	if doc_got_cache.FromCache != true {
-		t.Fatal("Document wasn't returned from Cache")
+		t.Fatal("document wasn't returned from Cache")
 	}
 
-	t.Log("Sleep to wait for cache to clear document, 6 seconds")
+	t.Log("sleep to wait for cache to clear document, 6 seconds")
 	time.Sleep(time.Second * 6)
 
 	doc_got_noncache, err := DB.Collection("Test").Document(test1_doc.Id)
@@ -399,15 +432,15 @@ func TestCache(t *testing.T) {
 	}
 
 	if doc_got_noncache.FromCache != false {
-		t.Fatal("Document was returned from Cache")
+		t.Fatal("document was returned from Cache")
 	}
 
 	err = ClearTestDatabase(DB)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	t.Log("Timeout purge test completed")
-	t.Log("Testing cache overflow")
+
+	t.Log("testing cache overflow")
 
 	_, err = DB.Collection("Test").Add(test1)
 	if err != nil {
@@ -445,7 +478,7 @@ func TestCache(t *testing.T) {
 		}
 	}
 	if cached_docs != int(expected_cached) {
-		t.Fatal("Returned number of cached documents was unexpected")
+		t.Fatal("returned number of cached documents was unexpected")
 	}
 
 	err = ClearTestDatabase(DB)

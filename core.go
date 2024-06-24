@@ -107,8 +107,8 @@ func (d *Driver) RunCachePurge() {
 	d.cache.RunCachePurge()
 }
 
-func (d *Driver) Collection(name string) *Collection_ref {
-	return &Collection_ref{collection_name: name, driver: d}
+func (d *Driver) Collection(name string) *Collection {
+	return &Collection{collection_name: name, driver: d}
 }
 
 func stat(path string) (fi os.FileInfo, err error) {

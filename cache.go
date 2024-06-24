@@ -19,7 +19,7 @@ type (
 	}
 )
 
-func (c *Cache) Add(coll_ref Collection_ref, doc Document) error {
+func (c *Cache) Add(coll_ref Collection, doc Document) error {
 	// Obtain Mutex
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

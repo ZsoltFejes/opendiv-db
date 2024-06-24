@@ -9,7 +9,7 @@ import (
 )
 
 type Filter struct {
-	collection *Collection_ref
+	collection *Collection
 	driver     *Driver
 	field      string // Filed to filter by
 	operator   string // Accepted conditions ==, <=, >=, !=, >, <. Comparison is done in the following format: [field] [operator] [value]

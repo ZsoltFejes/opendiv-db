@@ -11,21 +11,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type Collection_ref struct {
+type Collection struct {
 	collection_name string
 	driver          *Driver
 }
 
 // Write locks the database and attempts to write the record to the database under
 // the [collection] specified with the random document name (UUID). Name is added to document under [Id]
-func (c *Collection_ref) Add(v interface{}) (Document, error) {
+func (c *Collection) Add(v interface{}) (Document, error) {
 	new_id := uuid.NewString()
 	return c.Write(new_id, v)
 }
 
 // Write locks the database and attempts to write the record to the database under
 // the [collection] specified with the [document] name given
-func (c *Collection_ref) Write(document string, v interface{}) (Document, error) {
+func (c *Collection) Write(document string, v interface{}) (Document, error) {
 	err := ValidateID(c.collection_name)
 	if err != nil {
 		return Document{}, fmt.Errorf(`collection name validation error - ` + err.Error())
@@ -84,7 +84,7 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 }
 
 // Read a document from the database or Cache
-func (c *Collection_ref) Document(id string) (Document, error) {
+func (c *Collection) Document(id string) (Document, error) {
 	// ensure there is a place to save record
 	err := ValidateID(c.collection_name)
 	if err != nil {
@@ -111,7 +111,7 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 	// Check to see if file exists
 	record := filepath.Join(c.driver.dir, c.collection_name, id)
 	if _, err := stat(record); err != nil {
-		return Document{}, fmt.Errorf("Document '" + id + "' doesn't exist in '" + c.collection_name + "!")
+		return Document{}, fmt.Errorf("document '" + id + "' doesn't exist in '" + c.collection_name + "'")
 	}
 
 	// read record from database
@@ -139,7 +139,7 @@ func (c *Collection_ref) Document(id string) (Document, error) {
 
 // ReadAll documents from a collection; this is returned as a Collection
 // there is no way of knowing what type the record is.
-func (c *Collection_ref) Documents() ([]Document, error) {
+func (c *Collection) Documents() ([]Document, error) {
 	var col []Document
 	// ensure there is a collection to read
 	if c.collection_name == "" {
@@ -178,7 +178,7 @@ func (c *Collection_ref) Documents() ([]Document, error) {
 
 // Delete locks that database and then attempts to remove the collection/document
 // specified by [path]
-func (c *Collection_ref) Delete(id string) error {
+func (c *Collection) Delete(id string) error {
 	err := ValidateID(c.collection_name)
 	if err != nil {
 		return fmt.Errorf(`collection name validation error - ` + err.Error())
@@ -222,6 +222,6 @@ func (c *Collection_ref) Delete(id string) error {
 }
 
 // Creates Filter object so do simple queries
-func (c *Collection_ref) Where(field string, operator string, value any) *Filter {
+func (c *Collection) Where(field string, operator string, value any) *Filter {
 	return &Filter{collection: c, driver: c.driver, field: field, operator: operator, value: value}
 }
