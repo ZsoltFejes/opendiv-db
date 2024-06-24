@@ -116,7 +116,7 @@ func Test_Encryption(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	t.Log("running non encrypted test")
+	t.Log("testing non encrypted database")
 	test1 := TestObject{String: "test1", Number: 1, Bool: true, Time: time.Now()}
 	doc_created, err := DB.Collection("Test").Add(test1)
 	if err != nil {
@@ -145,7 +145,7 @@ func Test_Encryption(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	t.Log("running encrypted test")
+	t.Log("testing encrypted database")
 	config, err = LoadConfig()
 	if err != nil {
 		l(err.Error(), true, true)
@@ -204,7 +204,7 @@ func Test_Filter(t *testing.T) {
 		t.Fatal("unable to create DB " + err.Error())
 	}
 	// Cache not needed right now for this test
-	// go DB.Cache.RunCachePurge()
+	go DB.RunCachePurge()
 
 	err = ClearTestDatabase(DB)
 	if err != nil {
