@@ -37,7 +37,7 @@ func (c *Collection_ref) Write(document string, v interface{}) (Document, error)
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
-	mutex := c.driver.getOrCreateMutex(c.collection_name)
+	mutex := c.driver.getOrCreateMutex(c.collection_name + "/" + document)
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -185,15 +185,13 @@ func (c *Collection_ref) Delete(id string) error {
 	}
 
 	// ensure there is a document (name) to save record as
-	if id != "" {
-		err = ValidateID(id)
-		if err != nil {
-			return fmt.Errorf(`document ID validation error - ` + err.Error())
-		}
+	err = ValidateID(id)
+	if err != nil {
+		return fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
 	path := filepath.Join(c.collection_name, id)
-	mutex := c.driver.getOrCreateMutex(c.collection_name)
+	mutex := c.driver.getOrCreateMutex(c.collection_name + "/" + id)
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -212,12 +210,7 @@ func (c *Collection_ref) Delete(id string) error {
 	// remove directory and all contents
 	case fi.Mode().IsDir():
 		// read all the files in the transaction.Collection;
-		files, _ := os.ReadDir(dir)
-		// Loop through each file to delete it from cache
-		for _, file := range files {
-			c.driver.cache.Delete(c.collection_name, file.Name())
-		}
-		return os.RemoveAll(dir)
+		return fmt.Errorf("deletion of entire collection is not allowed")
 
 	// remove file
 	case fi.Mode().IsRegular():

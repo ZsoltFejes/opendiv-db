@@ -123,17 +123,17 @@ func stat(path string) (fi os.FileInfo, err error) {
 
 // getOrCreateMutex creates a new collection specific mutex any time a collection
 // is being modified to avoid unsafe operations
-func (d *Driver) getOrCreateMutex(collection string) *sync.Mutex {
+func (d *Driver) getOrCreateMutex(collection_document string) *sync.Mutex {
 
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
-	m, ok := d.mutexes[collection]
+	m, ok := d.mutexes[collection_document]
 
 	// if the mutex doesn't exist make it
 	if !ok {
 		m = &sync.Mutex{}
-		d.mutexes[collection] = m
+		d.mutexes[collection_document] = m
 	}
 
 	return m

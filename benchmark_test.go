@@ -3,9 +3,11 @@ package main
 import (
 	"strconv"
 	"testing"
+
+	"golang.org/x/sync/errgroup"
 )
 
-func BenchmarkNonEncrypted(b *testing.B) {
+func Benchmark_NonEncrypted_Serial(b *testing.B) {
 	number_of_documents := b.N
 
 	config, err := LoadConfig()
@@ -36,7 +38,48 @@ func BenchmarkNonEncrypted(b *testing.B) {
 	ClearTestDatabase(DB)
 }
 
-func BenchmarkEncrypted(b *testing.B) {
+func Benchmark_NonEncrypted_Parallel(b *testing.B) {
+	//fmt.Println(b.N)
+	number_of_documents := b.N
+	//number_of_documents := 1000
+
+	config, err := LoadConfig()
+	//Set cache timeout for short for testing
+	if err != nil {
+		l(err.Error(), true, true)
+	}
+
+	config.Encryption_key = ""
+	config.Salt = ""
+	// Create database driver
+	DB, err = NewDB(config.Path, config)
+	if err != nil {
+		b.Fatal("Unable to create DB! " + err.Error())
+	}
+	// Cache not needed right now for this test
+	go DB.RunCachePurge()
+
+	// Test parallel write
+	eg := errgroup.Group{}
+	eg.SetLimit(2000)
+	for id := range number_of_documents {
+		test := TestObject{String: "test" + strconv.Itoa(id), Number: float64(id)}
+		eg.Go(func() error {
+			//fmt.Println("Adding " + test.String)
+			_, err := DB.Collection("Test").Add(test)
+			if err != nil {
+				return err
+			}
+			//fmt.Println("Done " + test.String)
+			return nil
+		})
+	}
+	eg.Wait()
+
+	ClearTestDatabase(DB)
+}
+
+func Benchmark_Encrypted_Serial(b *testing.B) {
 	number_of_documents := b.N
 
 	config, err := LoadConfig()
@@ -62,6 +105,46 @@ func BenchmarkEncrypted(b *testing.B) {
 			b.Fatal(err.Error())
 		}
 	}
+
+	ClearTestDatabase(DB)
+}
+
+func Benchmark_Encrypted_Parallel(b *testing.B) {
+	//fmt.Println(b.N)
+	number_of_documents := b.N
+	//number_of_documents := 1000
+
+	config, err := LoadConfig()
+	//Set cache timeout for short for testing
+	if err != nil {
+		l(err.Error(), true, true)
+	}
+
+	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
+	// Create database driver
+	DB, err = NewDB(config.Path, config)
+	if err != nil {
+		b.Fatal("Unable to create DB! " + err.Error())
+	}
+	// Cache not needed right now for this test
+	go DB.RunCachePurge()
+
+	// Test parallel write
+	eg := errgroup.Group{}
+	eg.SetLimit(2000)
+	for id := range number_of_documents {
+		test := TestObject{String: "test" + strconv.Itoa(id), Number: float64(id)}
+		eg.Go(func() error {
+			//fmt.Println("Adding " + test.String)
+			_, err := DB.Collection("Test").Add(test)
+			if err != nil {
+				return err
+			}
+			//fmt.Println("Done " + test.String)
+			return nil
+		})
+	}
+	eg.Wait()
 
 	ClearTestDatabase(DB)
 }
