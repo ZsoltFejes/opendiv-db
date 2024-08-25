@@ -11,7 +11,7 @@ func Benchmark_NonEncrypted_Serial(b *testing.B) {
 	var DB *Driver
 	number_of_documents := b.N
 
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	//Set cache timeout for short for testing
 	if err != nil {
 		b.Fatal(err.Error())
@@ -45,7 +45,7 @@ func Benchmark_NonEncrypted_Parallel(b *testing.B) {
 	number_of_documents := b.N
 	//number_of_documents := 1000
 
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	//Set cache timeout for short for testing
 	if err != nil {
 		b.Fatal(err.Error())
@@ -84,7 +84,7 @@ func Benchmark_Encrypted_Serial(b *testing.B) {
 	var DB *Driver
 	number_of_documents := b.N
 
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	//Set cache timeout for short for testing
 	if err != nil {
 		b.Fatal(err.Error())
@@ -117,7 +117,7 @@ func Benchmark_Encrypted_Parallel(b *testing.B) {
 	number_of_documents := b.N
 	//number_of_documents := 1000
 
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	//Set cache timeout for short for testing
 	if err != nil {
 		b.Fatal(err.Error())

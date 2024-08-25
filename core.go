@@ -69,10 +69,10 @@ func GetMD5Hash(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func LoadConfig() (Config, error) {
+func LoadConfig(path_to_config_file string) (Config, error) {
 	config := Config{Encryption_key: "", Path: "", Salt: ""}
 	// Read config file located at in the same directory as the executable
-	config_b, err := os.ReadFile(filepath.Join("db_config.yml"))
+	config_b, err := os.ReadFile(filepath.Join(path_to_config_file))
 	// If  there was an error reading the file fall back to using environment variables
 	if err != nil {
 		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")

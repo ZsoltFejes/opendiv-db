@@ -22,7 +22,7 @@ func ClearTestDatabase(DB *Driver) error {
 
 func Test_CRUD(t *testing.T) {
 	var DB *Driver
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -101,7 +101,7 @@ func Test_CRUD(t *testing.T) {
 
 func Test_Encryption(t *testing.T) {
 	var DB *Driver
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -148,7 +148,7 @@ func Test_Encryption(t *testing.T) {
 	}
 
 	t.Log("testing encrypted database")
-	config, err = LoadConfig()
+	config, err = LoadConfig("db_config.yml")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -195,7 +195,7 @@ func Test_Encryption(t *testing.T) {
 
 func Test_Filter(t *testing.T) {
 	var DB *Driver
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -376,7 +376,7 @@ func Test_Filter(t *testing.T) {
 
 func Test_Cache(t *testing.T) {
 	var DB *Driver
-	config, err := LoadConfig()
+	config, err := LoadConfig("db_config.yml")
 	//Set cache timeout for short for testing
 	config.Cache_timeout = 5
 	config.Cache_limit = 2
