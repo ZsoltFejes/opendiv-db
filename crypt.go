@@ -1,4 +1,4 @@
-package main
+package opendivdb
 
 import (
 	"bytes"
@@ -6,10 +6,10 @@ import (
 	"fmt"
 )
 
-func EncryptAES(key []byte, data []byte) []byte {
+func EncryptAES(key []byte, data []byte) ([]byte, error) {
 	c, err := aes.NewCipher(key)
 	if err != nil {
-		l("Unable to create AES Cipher! "+err.Error(), true, true)
+		return nil, fmt.Errorf("Unable to create AES Cipher! " + err.Error())
 	}
 	out := make([]byte, 1048576)
 
@@ -40,7 +40,7 @@ func EncryptAES(key []byte, data []byte) []byte {
 		}
 	}
 
-	return bytes.Trim(out, "\x00")
+	return bytes.Trim(out, "\x00"), nil
 }
 
 func DecryptAES(key []byte, ciphertext []byte) ([]byte, error) {

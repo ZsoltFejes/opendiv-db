@@ -1,4 +1,4 @@
-package main
+package opendivdb
 
 import (
 	"crypto/md5"
@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 type (
@@ -30,6 +33,14 @@ type (
 		FromCache  bool
 		Hash       string // Hash of "Data" bytes
 		Data       json.RawMessage
+	}
+
+	Config struct {
+		Encryption_key string  `yaml:"encryption_key,omitempty"` // Database encryption key must be 32 characters long for AES-256
+		Salt           string  `yaml:"omitempty"`                // Salt for encryption not included in the config file but in the binary
+		Path           string  `yaml:"path,omitempty"`           // Path to the where the collections and documents will be placed
+		Cache_timeout  float64 `yaml:"cache_timeout,omitempty"`  // Database cache timeout in seconds
+		Cache_limit    float64 `yaml:"cache_limit,omitempty"`    // Maximum number of documents cached at a given time, when exceeded the oldest document is removed
 	}
 )
 
@@ -58,10 +69,42 @@ func GetMD5Hash(text string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+func LoadConfig() (Config, error) {
+	config := Config{Encryption_key: "", Path: "", Salt: ""}
+	// Read config file located at in the same directory as the executable
+	config_b, err := os.ReadFile(filepath.Join("db_config.yml"))
+	// If  there was an error reading the file fall back to using environment variables
+	if err != nil {
+		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
+		config.Path = os.Getenv("OPENDIV_DB_PATH")
+		config.Cache_limit, err = strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_LIMIT"), 64)
+		if err != nil {
+			config.Cache_limit = 0
+		}
+		timeout, err := strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_TIMEOUT"), 64)
+		if err != nil {
+			config.Cache_timeout = 0
+		}
+		config.Cache_timeout = timeout
+	} else {
+		err = yaml.Unmarshal(config_b, &config)
+		if err != nil {
+			return Config{}, fmt.Errorf("unable to unmarshal configuration file")
+		}
+	}
+
+	// Check db path is specified.
+	if config.Path == "" {
+		return Config{}, fmt.Errorf("no database path was provided")
+	}
+
+	return config, nil
+}
+
 // New creates a new scribble database at the desired directory location, and
 // returns a *Driver to then use for interacting with the database
-func NewDB(dir string, config Config) (*Driver, error) {
-	dir = filepath.Clean(dir)
+func NewDB(config Config) (*Driver, error) {
+	dir := filepath.Clean(config.Path)
 
 	// Check for timeout, if not set by user set default
 	var cache_limit float64

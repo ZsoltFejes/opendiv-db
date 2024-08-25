@@ -1,4 +1,4 @@
-package main
+package opendivdb
 
 import (
 	"encoding/json"
@@ -21,6 +21,7 @@ func ClearTestDatabase(DB *Driver) error {
 }
 
 func Test_CRUD(t *testing.T) {
+	var DB *Driver
 	config, err := LoadConfig()
 	if err != nil {
 		t.Fatal(err.Error())
@@ -28,7 +29,7 @@ func Test_CRUD(t *testing.T) {
 
 	// Create database driver
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		t.Fatal("unable to create DB! " + err.Error())
 	}
@@ -99,14 +100,15 @@ func Test_CRUD(t *testing.T) {
 }
 
 func Test_Encryption(t *testing.T) {
+	var DB *Driver
 	config, err := LoadConfig()
 	if err != nil {
-		l(err.Error(), true, true)
+		t.Fatal(err.Error())
 	}
 	config.Encryption_key = ""
 	config.Salt = ""
 	// Create database driver
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		t.Fatal("unable to create DB " + err.Error())
 	}
@@ -148,11 +150,11 @@ func Test_Encryption(t *testing.T) {
 	t.Log("testing encrypted database")
 	config, err = LoadConfig()
 	if err != nil {
-		l(err.Error(), true, true)
+		t.Fatal(err.Error())
 	}
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	// Create database driver
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		t.Fatal("unable to create DB! " + err.Error())
 	}
@@ -192,14 +194,15 @@ func Test_Encryption(t *testing.T) {
 }
 
 func Test_Filter(t *testing.T) {
+	var DB *Driver
 	config, err := LoadConfig()
 	if err != nil {
-		l(err.Error(), true, true)
+		t.Fatal(err.Error())
 	}
 
 	// Create database driver
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		t.Fatal("unable to create DB " + err.Error())
 	}
@@ -372,17 +375,18 @@ func Test_Filter(t *testing.T) {
 }
 
 func Test_Cache(t *testing.T) {
+	var DB *Driver
 	config, err := LoadConfig()
 	//Set cache timeout for short for testing
 	config.Cache_timeout = 5
 	config.Cache_limit = 2
 	if err != nil {
-		l(err.Error(), true, true)
+		t.Fatal(err.Error())
 	}
 
 	// Create database driver
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		t.Fatal("unable to create DB " + err.Error())
 	}

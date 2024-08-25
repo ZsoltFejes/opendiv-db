@@ -1,4 +1,4 @@
-package main
+package opendivdb
 
 import (
 	"encoding/json"
@@ -68,7 +68,10 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 	}
 	// check if encryption is enabled and encrypt entire document before writing it to disk
 	if len(c.driver.encryption_key) != 0 {
-		b = EncryptAES(c.driver.encryption_key, b)
+		b, err = EncryptAES(c.driver.encryption_key, b)
+		if err != nil {
+			return Document{}, err
+		}
 	}
 	// write document bytes to the disk
 	if err := os.WriteFile(tmpPath, b, 0644); err != nil {

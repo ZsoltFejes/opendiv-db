@@ -1,4 +1,4 @@
-package main
+package opendivdb
 
 import (
 	"encoding/json"

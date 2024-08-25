@@ -1,4 +1,4 @@
-package main
+package opendivdb
 
 import (
 	"strconv"
@@ -8,18 +8,19 @@ import (
 )
 
 func Benchmark_NonEncrypted_Serial(b *testing.B) {
+	var DB *Driver
 	number_of_documents := b.N
 
 	config, err := LoadConfig()
 	//Set cache timeout for short for testing
 	if err != nil {
-		l(err.Error(), true, true)
+		b.Fatal(err.Error())
 	}
 
 	config.Encryption_key = ""
 	config.Salt = ""
 	// Create database driver
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
@@ -39,6 +40,7 @@ func Benchmark_NonEncrypted_Serial(b *testing.B) {
 }
 
 func Benchmark_NonEncrypted_Parallel(b *testing.B) {
+	var DB *Driver
 	//fmt.Println(b.N)
 	number_of_documents := b.N
 	//number_of_documents := 1000
@@ -46,13 +48,13 @@ func Benchmark_NonEncrypted_Parallel(b *testing.B) {
 	config, err := LoadConfig()
 	//Set cache timeout for short for testing
 	if err != nil {
-		l(err.Error(), true, true)
+		b.Fatal(err.Error())
 	}
 
 	config.Encryption_key = ""
 	config.Salt = ""
 	// Create database driver
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
@@ -70,7 +72,6 @@ func Benchmark_NonEncrypted_Parallel(b *testing.B) {
 			if err != nil {
 				return err
 			}
-			//fmt.Println("Done " + test.String)
 			return nil
 		})
 	}
@@ -80,17 +81,18 @@ func Benchmark_NonEncrypted_Parallel(b *testing.B) {
 }
 
 func Benchmark_Encrypted_Serial(b *testing.B) {
+	var DB *Driver
 	number_of_documents := b.N
 
 	config, err := LoadConfig()
 	//Set cache timeout for short for testing
 	if err != nil {
-		l(err.Error(), true, true)
+		b.Fatal(err.Error())
 	}
 
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	// Create database driver
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
@@ -110,6 +112,7 @@ func Benchmark_Encrypted_Serial(b *testing.B) {
 }
 
 func Benchmark_Encrypted_Parallel(b *testing.B) {
+	var DB *Driver
 	//fmt.Println(b.N)
 	number_of_documents := b.N
 	//number_of_documents := 1000
@@ -117,12 +120,13 @@ func Benchmark_Encrypted_Parallel(b *testing.B) {
 	config, err := LoadConfig()
 	//Set cache timeout for short for testing
 	if err != nil {
-		l(err.Error(), true, true)
+		b.Fatal(err.Error())
 	}
 
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	// Create database driver
-	DB, err = NewDB(config.Path, config)
+	DB, err = NewDB(config)
+
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
@@ -135,12 +139,10 @@ func Benchmark_Encrypted_Parallel(b *testing.B) {
 	for id := range number_of_documents {
 		test := TestObject{String: "test" + strconv.Itoa(id), Number: float64(id)}
 		eg.Go(func() error {
-			//fmt.Println("Adding " + test.String)
 			_, err := DB.Collection("Test").Add(test)
 			if err != nil {
 				return err
 			}
-			//fmt.Println("Done " + test.String)
 			return nil
 		})
 	}
