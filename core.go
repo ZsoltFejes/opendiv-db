@@ -64,8 +64,8 @@ func (d Document) DataTo(v interface{}) error {
 	return json.Unmarshal(doc_b, &v)
 }
 
-func GetMD5Hash(text string) string {
-	hash := md5.Sum([]byte(text))
+func GetMD5Hash(text []byte) string {
+	hash := md5.Sum(text)
 	return hex.EncodeToString(hash[:])
 }
 
