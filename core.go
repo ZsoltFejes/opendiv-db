@@ -25,6 +25,7 @@ type (
 		mutexes        map[string]*sync.Mutex
 		cache          Cache
 		dir            string // the directory where scribble will create the database
+		doc_state      map[string]string
 	}
 
 	Document struct {
@@ -52,6 +53,7 @@ func ValidateID(id string) error {
 	if strings.Contains(id, "/") || strings.Contains(id, `\`) {
 		return fmt.Errorf(`unsupported character, can't contain '/' or '\'`)
 	}
+
 	return nil
 }
 
@@ -133,11 +135,15 @@ func NewDB(config Config) (*Driver, error) {
 		dir:            dir,
 		mutexes:        make(map[string]*sync.Mutex),
 		cache:          Cache{Timeout: cache_timeout, Limit: cache_limit, documents: make(map[string]Cached_Doc)},
+		doc_state:      make(map[string]string),
 	}
 
 	// if the database already exists, just use it
 	if _, err := os.Stat(dir); err == nil {
-		//l("Using '"+dir+"' (database already exists)", false, true)
+		err = driver.loadDocState()
+		if err != nil {
+			return &driver, err
+		}
 		return &driver, nil
 	}
 
@@ -155,7 +161,6 @@ func (d *Driver) Collection(name string) *Collection {
 }
 
 func stat(path string) (fi os.FileInfo, err error) {
-
 	// check for dir, if path isn't a directory check to see if it's a file
 	if fi, err = os.Stat(path); os.IsNotExist(err) {
 		fi, err = os.Stat(path)
@@ -180,4 +185,31 @@ func (d *Driver) getOrCreateMutex(collection_document string) *sync.Mutex {
 	}
 
 	return m
+}
+
+func (d *Driver) setDocState(collection string, doc Document) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.doc_state[collection+"/"+doc.Id] = doc.Hash
+}
+
+func (d *Driver) loadDocState() error {
+	// Get all collection names
+	entries, err := os.ReadDir(d.dir)
+	if err != nil {
+		return nil
+	}
+	// For each collection
+	for _, dir := range entries {
+		if dir.IsDir() {
+			col, err := d.Collection(dir.Name()).Documents()
+			if err != nil {
+				return err
+			}
+			for _, doc := range col {
+				d.setDocState(dir.Name(), doc)
+			}
+		}
+	}
+	return nil
 }

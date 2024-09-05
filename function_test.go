@@ -215,25 +215,25 @@ func Test_Filter(t *testing.T) {
 	}
 
 	test1 := TestObject{String: "test1", Number: 1, Bool: true, Time: time.Now()}
-	_, err = DB.Collection("Test").Add(test1)
+	test1_doc, err := DB.Collection("Test").Add(test1)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	test2 := TestObject{String: "test2", Number: 2, Bool: true, Time: time.Now().Add(time.Second * 10)}
-	_, err = DB.Collection("Test").Add(test2)
+	test2_doc, err := DB.Collection("Test").Add(test2)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	test3 := TestObject{String: "test3", Number: 3, Bool: true, Time: time.Now().Add(time.Second * 10)}
-	_, err = DB.Collection("Test").Add(test3)
+	test3_doc, err := DB.Collection("Test").Add(test3)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
 	test4 := TestObject{String: "test4", Number: 4, Bool: false, Time: time.Now().Add(time.Second * 1)}
-	_, err = DB.Collection("Test").Add(test4)
+	test4_doc, err := DB.Collection("Test").Add(test4)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -366,6 +366,22 @@ func Test_Filter(t *testing.T) {
 		if !got_doc.Time.After(test_time) {
 			t.Fatal("object found filtered in incorrectly")
 		}
+	}
+
+	if DB.doc_state["Test/"+test1_doc.Id] != test1_doc.Hash {
+		t.Fatal("doc state isn't correct for doc 1")
+	}
+
+	if DB.doc_state["Test/"+test2_doc.Id] != test2_doc.Hash {
+		t.Fatal("doc state isn't correct for doc 2")
+	}
+
+	if DB.doc_state["Test/"+test3_doc.Id] != test3_doc.Hash {
+		t.Fatal("doc state isn't correct for doc 3")
+	}
+
+	if DB.doc_state["Test/"+test4_doc.Id] != test4_doc.Hash {
+		t.Fatal("doc state isn't correct for doc 4")
 	}
 
 	err = ClearTestDatabase(DB)

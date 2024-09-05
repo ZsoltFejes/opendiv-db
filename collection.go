@@ -66,6 +66,9 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
+
+	c.driver.setDocState(c.collection_name, doc)
+
 	// check if encryption is enabled and encrypt entire document before writing it to disk
 	if len(c.driver.encryption_key) != 0 {
 		b, err = EncryptAES(c.driver.encryption_key, b)
