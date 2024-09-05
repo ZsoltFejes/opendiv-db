@@ -193,6 +193,12 @@ func (d *Driver) setDocState(collection string, doc Document) {
 	d.doc_state[collection+"/"+doc.Id] = doc.Hash
 }
 
+func (d *Driver) removeDocState(collection string, id string) {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	delete(d.doc_state, collection+"/"+id)
+}
+
 func (d *Driver) loadDocState() error {
 	// Get all collection names
 	entries, err := os.ReadDir(d.dir)

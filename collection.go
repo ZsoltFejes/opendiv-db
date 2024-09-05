@@ -221,6 +221,7 @@ func (c *Collection) Delete(id string) error {
 	// remove file
 	case fi.Mode().IsRegular():
 		c.driver.cache.Delete(c.collection_name, id)
+		c.driver.removeDocState(c.collection_name, id)
 		return os.RemoveAll(dir)
 	}
 
