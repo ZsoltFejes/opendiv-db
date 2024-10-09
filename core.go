@@ -26,6 +26,7 @@ type (
 		cache          Cache
 		dir            string // the directory where scribble will create the database
 		doc_state      map[string]string
+		subs           map[string]*Subscription
 	}
 
 	Document struct {
@@ -137,6 +138,7 @@ func NewDB(config Config) (*Driver, error) {
 		mutexes:        make(map[string]*sync.Mutex),
 		cache:          Cache{Timeout: cache_timeout, Limit: cache_limit, documents: make(map[string]Cached_Doc)},
 		doc_state:      make(map[string]string),
+		subs:           make(map[string]*Subscription),
 	}
 
 	// if the database already exists, just use it

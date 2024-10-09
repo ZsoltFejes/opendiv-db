@@ -2,6 +2,7 @@ package opendivdb
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -368,6 +369,10 @@ func Test_Filter(t *testing.T) {
 		}
 	}
 
+	/////////////////////
+	// Test Doc States //
+	/////////////////////
+	t.Log("testing doc states")
 	if DB.doc_state["Test/"+test1_doc.Id] != test1_doc.Hash {
 		t.Fatal("doc state isn't correct for doc 1")
 	}
@@ -501,6 +506,112 @@ func Test_Cache(t *testing.T) {
 		t.Fatal("returned number of cached documents was unexpected")
 	}
 
+	err = ClearTestDatabase(DB)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
+func Test_Subscriptions(t *testing.T) {
+	var DB *Driver
+	config, err := LoadConfig("db_config.yml")
+	//Set cache timeout for short for testing
+	config.Cache_timeout = 5
+	config.Cache_limit = 2
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// Create database driver
+	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
+	DB, err = NewDB(config)
+	if err != nil {
+		t.Fatal("unable to create DB " + err.Error())
+	}
+	// Cache not needed right now for this test
+	go DB.RunCachePurge()
+
+	err = ClearTestDatabase(DB)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	/////////////////////////////////////
+	// Testing Collection Subscription //
+	/////////////////////////////////////
+	t.Log("testing entire collection subscriptions")
+	// Create subscription for the entire "Test" collection
+	collection_test_sub, err := DB.Collection("Test").Subscribe()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	// Returned slice should have a length of 0 as we haven't created any documents yet
+	docs := <-collection_test_sub.Channel
+	if len(docs) != 0 {
+		t.Fatal("incorrect number of documents were sent in channel")
+	}
+
+	// Create first document
+	test1 := TestObject{String: "test1", Number: 1}
+	_, err = DB.Collection("Test").Add(test1)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	// Read channel, there should de one document in this update
+	docs = <-collection_test_sub.Channel
+	if len(docs) != 1 {
+		t.Fatal("incorrect number of documents were sent in channel")
+	}
+
+	// Create second document
+	test2 := TestObject{String: "test2", Number: 2}
+	_, err = DB.Collection("Test").Add(test2)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	// There should be two documents in this update
+	docs = <-collection_test_sub.Channel
+	if len(docs) != 2 {
+		t.Fatal("incorrect number of documents were sent in channel")
+	}
+	// Unsubscribe from updates
+	collection_test_sub.Unsubscribe()
+
+	//////////////////////////////////////////////
+	// Testing Filtered Collection Subscription //
+	//////////////////////////////////////////////
+	t.Log("testing filtered collection subscriptions")
+	// Create a document that is out of our filter
+	test3 := TestObject{String: "test3", Number: 3}
+	_, err = DB.Collection("Test").Add(test3)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	// Subscribe to documents in "Test" collection where "Number" filed has a number that is less or equal to 2
+	filtered_collection_test_sub, err := DB.Collection("Test").Where("Number", "<=", 2).Subscribe()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	// There should be 2 documents that matches this criteria
+	docs = <-filtered_collection_test_sub.Channel
+	if len(docs) != 2 {
+		fmt.Println(docs)
+		t.Fatal("incorrect number of documents were sent in channel")
+	}
+	// Add a third document that matches the filter
+	test4 := TestObject{String: "test4", Number: 2}
+	_, err = DB.Collection("Test").Add(test4)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	// There should be three documents now matching the filter
+	docs = <-filtered_collection_test_sub.Channel
+	if len(docs) != 3 {
+		t.Fatal("incorrect number of documents were sent in channel")
+	}
+
+	// Clean up the database
 	err = ClearTestDatabase(DB)
 	if err != nil {
 		t.Fatal(err.Error())

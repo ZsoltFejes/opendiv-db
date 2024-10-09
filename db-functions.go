@@ -14,6 +14,7 @@ import (
 type Collection struct {
 	collection_name string
 	driver          *Driver
+	filter          Filter
 }
 
 // Write locks the database and attempts to write the record to the database under
@@ -67,7 +68,7 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 		return Document{}, err
 	}
 
-	c.driver.setDocState(c.collection_name, doc)
+	go c.driver.setDocState(c.collection_name, doc)
 
 	// check if encryption is enabled and encrypt entire document before writing it to disk
 	if len(c.driver.encryption_key) != 0 {
@@ -86,6 +87,7 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
+	go c.driver.checkSubscriptionPush(c.collection_name, doc)
 	return doc, nil
 }
 
@@ -111,7 +113,7 @@ func (c *Collection) Document(id string) (Document, error) {
 	// check to see if collection (directory) exists
 	dir := filepath.Join(c.driver.dir, c.collection_name)
 	if _, err := stat(dir); err != nil {
-		return Document{}, fmt.Errorf("Collection '" + c.collection_name + "' doesn't exist!")
+		return Document{}, nil
 	}
 
 	// Check to see if file exists
@@ -146,6 +148,15 @@ func (c *Collection) Document(id string) (Document, error) {
 // ReadAll documents from a collection; this is returned as a Collection
 // there is no way of knowing what type the record is.
 func (c *Collection) Documents() ([]Document, error) {
+	// Check if filter is specified, use filtered function
+	if c.filter.field != "" {
+		return c.filteredDocuments()
+	} else {
+		return c.allDocuments()
+	}
+}
+
+func (c *Collection) allDocuments() ([]Document, error) {
 	var col []Document
 	// ensure there is a collection to read
 	if c.collection_name == "" {
@@ -159,7 +170,7 @@ func (c *Collection) Documents() ([]Document, error) {
 	// check to see if collection (directory) exists
 	dir := filepath.Join(c.driver.dir, c.collection_name)
 	if _, err := stat(dir); err != nil {
-		return col, fmt.Errorf("Collection '" + c.collection_name + "' doesn't exist!")
+		return col, nil
 	}
 
 	// read all the files in the transaction.Collection; an error here just means
@@ -177,8 +188,6 @@ func (c *Collection) Documents() ([]Document, error) {
 		// append read file
 		col = append(col, doc)
 	}
-
-	// unmarshal the read files as a comma delimited byte array
 	return col, nil
 }
 
@@ -220,15 +229,25 @@ func (c *Collection) Delete(id string) error {
 
 	// remove file
 	case fi.Mode().IsRegular():
+		doc, err := c.Document(id)
+		if err != nil {
+			return fmt.Errorf("unable to retrieve document for subscription push check " + err.Error())
+		}
+		err = os.RemoveAll(dir)
+		if err != nil {
+			return fmt.Errorf("unable to delete document from OS " + err.Error())
+		}
 		c.driver.cache.Delete(c.collection_name, id)
 		c.driver.removeDocState(c.collection_name, id)
-		return os.RemoveAll(dir)
+		go c.driver.checkSubscriptionPush(c.collection_name, doc)
+		return nil
 	}
 
 	return nil
 }
 
 // Creates Filter object so do simple queries
-func (c *Collection) Where(field string, operator string, value any) *Filter {
-	return &Filter{collection: c, driver: c.driver, field: field, operator: operator, value: value}
+func (c *Collection) Where(field string, operator string, value any) *Collection {
+	c.filter = Filter{field: field, operator: operator, value: value}
+	return c
 }
