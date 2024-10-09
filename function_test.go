@@ -330,7 +330,7 @@ func Test_Filter(t *testing.T) {
 	///////////////
 	t.Log("testing time filter")
 	test_time := time.Now()
-	col, err = DB.Collection("Test").Where("Time", "<", test_time.Format(time.RFC3339Nano)).Documents()
+	col, err = DB.Collection("Test").Where("Time", "<", test_time).Documents()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -349,7 +349,7 @@ func Test_Filter(t *testing.T) {
 		}
 	}
 
-	col, err = DB.Collection("Test").Where("Time", ">", test_time.Format(time.RFC3339Nano)).Documents()
+	col, err = DB.Collection("Test").Where("Time", ">", test_time).Documents()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
