@@ -139,7 +139,7 @@ func (f *Filter) included(doc Document) (bool, error) {
 			case float64:
 				return compareFloat64(real, f.operator, filter_t), nil
 			default:
-				return false, fmt.Errorf("Filter Value is not float64. For more details: https://pkg.go.dev/encoding/json#Unmarshal")
+				return false, fmt.Errorf("document field and filter value are mismatched")
 			}
 		case bool:
 			switch filter_t := f.value.(type) {
