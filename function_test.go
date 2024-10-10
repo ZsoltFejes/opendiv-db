@@ -2,7 +2,6 @@ package opendivdb
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -546,8 +545,11 @@ func Test_Subscriptions(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	// Returned slice should have a length of 0 as we haven't created any documents yet
-	docs := <-collection_test_sub.Channel
-	if len(docs) != 0 {
+	snap := collection_test_sub.Next()
+	if snap.Error != nil {
+		t.Fatal(snap.Error.Error())
+	}
+	if len(snap.Data) != 0 {
 		t.Fatal("incorrect number of documents were sent in channel")
 	}
 
@@ -558,8 +560,11 @@ func Test_Subscriptions(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	// Read channel, there should de one document in this update
-	docs = <-collection_test_sub.Channel
-	if len(docs) != 1 {
+	snap = collection_test_sub.Next()
+	if snap.Error != nil {
+		t.Fatal(snap.Error.Error())
+	}
+	if len(snap.Data) != 1 {
 		t.Fatal("incorrect number of documents were sent in channel")
 	}
 
@@ -570,12 +575,19 @@ func Test_Subscriptions(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	// There should be two documents in this update
-	docs = <-collection_test_sub.Channel
-	if len(docs) != 2 {
+	snap = collection_test_sub.Next()
+	if snap.Error != nil {
+		t.Fatal(snap.Error.Error())
+	}
+	if len(snap.Data) != 2 {
 		t.Fatal("incorrect number of documents were sent in channel")
 	}
 	// Unsubscribe from updates
 	collection_test_sub.Unsubscribe()
+	snap = collection_test_sub.Next()
+	if snap.Error.Error() != "subscription has been closed" {
+		t.Fatal("subscription wasn't closed properly")
+	}
 
 	//////////////////////////////////////////////
 	// Testing Filtered Collection Subscription //
@@ -594,9 +606,11 @@ func Test_Subscriptions(t *testing.T) {
 	}
 
 	// There should be 2 documents that matches this criteria
-	docs = <-filtered_collection_test_sub.Channel
-	if len(docs) != 2 {
-		fmt.Println(docs)
+	snap = filtered_collection_test_sub.Next()
+	if snap.Error != nil {
+		t.Fatal(snap.Error.Error())
+	}
+	if len(snap.Data) != 2 {
 		t.Fatal("incorrect number of documents were sent in channel")
 	}
 	// Add a third document that matches the filter
@@ -606,8 +620,11 @@ func Test_Subscriptions(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	// There should be three documents now matching the filter
-	docs = <-filtered_collection_test_sub.Channel
-	if len(docs) != 3 {
+	snap = filtered_collection_test_sub.Next()
+	if snap.Error != nil {
+		t.Fatal(snap.Error.Error())
+	}
+	if len(snap.Data) != 3 {
 		t.Fatal("incorrect number of documents were sent in channel")
 	}
 

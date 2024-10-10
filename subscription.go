@@ -7,22 +7,31 @@ import (
 )
 
 // Subscription struct, either Collection or Filter needs to be specified
-type Subscription struct {
-	driver     *Driver
-	id         string
-	collection *Collection
-	Channel    chan []Document
-}
+type (
+	Subscription struct {
+		driver       *Driver
+		id           string
+		collection   *Collection
+		channel      chan Snapshot
+		unsubscribed bool
+	}
+
+	Snapshot struct {
+		Data  []Document
+		Error error
+	}
+)
 
 // // Create new subscription for the entire collection
 func (c *Collection) Subscribe() (*Subscription, error) {
-	channel := make(chan []Document)
+	channel := make(chan Snapshot)
 
 	sub := Subscription{
-		driver:     c.driver,
-		id:         uuid.NewString(),
-		collection: c,
-		Channel:    channel,
+		driver:       c.driver,
+		id:           uuid.NewString(),
+		collection:   c,
+		channel:      channel,
+		unsubscribed: false,
 	}
 
 	c.driver.mutex.Lock()
@@ -56,16 +65,38 @@ func (d *Driver) checkSubscriptionPush(collection_name string, doc Document) {
 }
 
 func (s *Subscription) push() {
+	if s.unsubscribed {
+		return
+	}
+	snapshot := Snapshot{}
 	col, err := s.collection.Documents()
 	if err != nil {
-		fmt.Println("[ERROR] unable to retrieve documents for subscription push " + err.Error())
+		snapshot.Error = fmt.Errorf("unable to retrieve documents " + err.Error())
 	}
-	s.Channel <- col
+	snapshot.Data = col
+	s.channel <- snapshot
 }
 
 func (s *Subscription) Unsubscribe() {
-	close(s.Channel)
+	s.unsubscribed = true
+	close(s.channel)
 	s.driver.mutex.Lock()
 	defer s.driver.mutex.Unlock()
 	delete(s.driver.subs, s.id)
+}
+
+func (s *Subscription) Next() Snapshot {
+	for {
+		select {
+		case snap, ok := <-s.channel:
+			if !ok {
+				return Snapshot{Error: fmt.Errorf("subscription has been closed")}
+			}
+			return snap
+		default:
+			if s.unsubscribed {
+				return Snapshot{Error: fmt.Errorf("subscription has been closed")}
+			}
+		}
+	}
 }
