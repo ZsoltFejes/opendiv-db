@@ -17,13 +17,7 @@ type TestObject struct {
 
 func ClearTestDatabase(DB *Driver) error {
 	test_dir := filepath.Join(DB.dir, "Test")
-	err := os.RemoveAll(test_dir)
-	if err != nil {
-		return err
-	}
-	logs_dir := filepath.Join(DB.dir, "_logs")
-	err = os.RemoveAll(logs_dir)
-	return err
+	return os.RemoveAll(test_dir)
 }
 
 func Test_CRUD(t *testing.T) {
