@@ -132,7 +132,7 @@ func (c *Collection) Document(id string) (Document, error) {
 	if len(c.driver.encryption_key) != 0 {
 		b, err = DecryptAES(c.driver.encryption_key, b[:])
 		if err != nil {
-			return Document{}, fmt.Errorf(err.Error())
+			return Document{}, err
 		}
 	}
 	// unmarshall bytes into Document
@@ -140,6 +140,12 @@ func (c *Collection) Document(id string) (Document, error) {
 	err = json.Unmarshal(b, &doc)
 	if err != nil {
 		return Document{}, err
+	}
+
+	// Add document to cache
+	err = c.driver.cache.Add(*c, doc)
+	if err != nil {
+		return doc, err
 	}
 
 	return doc, nil

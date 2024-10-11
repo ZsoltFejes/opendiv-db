@@ -158,6 +158,10 @@ func Test_Encryption(t *testing.T) {
 	if err != nil {
 		t.Fatal("unable to create DB! " + err.Error())
 	}
+	err = ClearTestDatabase(DB)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	doc_created, err = DB.Collection("Test").Add(test1)
 	if err != nil {
@@ -208,6 +212,10 @@ func Test_Filter(t *testing.T) {
 	}
 	// Cache not needed right now for this test
 	go DB.RunCachePurge()
+	err = ClearTestDatabase(DB)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	err = ClearTestDatabase(DB)
 	if err != nil {
@@ -412,6 +420,10 @@ func Test_Cache(t *testing.T) {
 	}
 	// Cache not needed right now for this test
 	go DB.RunCachePurge()
+	err = ClearTestDatabase(DB)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	err = ClearTestDatabase(DB)
 	if err != nil {
@@ -529,6 +541,10 @@ func Test_Subscriptions(t *testing.T) {
 	}
 	// Cache not needed right now for this test
 	go DB.RunCachePurge()
+	err = ClearTestDatabase(DB)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 
 	err = ClearTestDatabase(DB)
 	if err != nil {
