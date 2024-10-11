@@ -57,11 +57,11 @@ func (c *Cache) Add(coll_ref Collection, doc Document) error {
 				}
 			}
 		}
-		c.Delete(coll_ref.collection_name, oldest_doc.Document.Id)
+		c.Delete(coll_ref.collection_name, oldest_doc.Document.ID)
 	}
 	doc.FromCache = true
 	cached_doc := Cached_Doc{Cached_at: time.Now(), Document: doc}
-	c.documents[coll_ref.collection_name+"/"+doc.Id] = cached_doc
+	c.documents[coll_ref.collection_name+"/"+doc.ID] = cached_doc
 	return nil
 }
 

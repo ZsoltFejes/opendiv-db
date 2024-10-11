@@ -30,7 +30,7 @@ type (
 	}
 
 	Document struct {
-		Id         string
+		ID         string
 		Updated_at time.Time
 		FromCache  bool
 		Hash       string // Hash of "Data" bytes
@@ -49,6 +49,8 @@ type (
 func ValidateID(id string) error {
 	if id == "" {
 		return fmt.Errorf("empty value")
+	} else if id == "_logs" {
+		return fmt.Errorf("collection can not be called _logs")
 	}
 
 	if strings.Contains(id, "/") || strings.Contains(id, `\`) {

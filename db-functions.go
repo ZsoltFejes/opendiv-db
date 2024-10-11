@@ -18,7 +18,7 @@ type Collection struct {
 }
 
 // Write locks the database and attempts to write the record to the database under
-// the [collection] specified with the random document name (UUID). Name is added to document under [Id]
+// the [collection] specified with the random document name (UUID). Name is added to document under [ID]
 func (c *Collection) Add(v interface{}) (Document, error) {
 	new_id := uuid.NewString()
 	return c.Write(new_id, v)
@@ -38,7 +38,23 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
-	return c.write(document, v)
+	// Write document to disk
+	doc, err := c.write(document, v)
+	if err != nil {
+		return doc, err
+	}
+
+	// add the new document to cache
+	err = c.driver.cache.Add(*c, doc)
+	if err != nil {
+		return Document{}, err
+	}
+
+	// Update in memory document state
+	go c.driver.setDocState(c.collection_name, doc)
+	// Push change to subscribers
+	go c.driver.checkSubscriptionPush(c.collection_name, doc)
+	return doc, nil
 }
 
 // Internal function to write a document into collection
@@ -61,19 +77,11 @@ func (c *Collection) write(document string, v interface{}) (Document, error) {
 		return Document{}, err
 	}
 	// create document wrapping the data bytes
-	doc := Document{Id: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(v_b), FromCache: false}
+	doc := Document{ID: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(v_b), FromCache: false}
 	b, err := json.MarshalIndent(doc, "", "\t")
 	if err != nil {
 		return Document{}, err
 	}
-
-	// add the new document to cache
-	err = c.driver.cache.Add(*c, doc)
-	if err != nil {
-		return Document{}, err
-	}
-
-	go c.driver.setDocState(c.collection_name, doc)
 
 	// check if encryption is enabled and encrypt entire document before writing it to disk
 	if len(c.driver.encryption_key) != 0 {
@@ -92,7 +100,7 @@ func (c *Collection) write(document string, v interface{}) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
-	go c.driver.checkSubscriptionPush(c.collection_name, doc)
+
 	return doc, nil
 }
 
@@ -225,7 +233,6 @@ func (c *Collection) Delete(id string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	//
 	dir := filepath.Join(c.driver.dir, path)
 
 	switch fi, err := stat(dir); {

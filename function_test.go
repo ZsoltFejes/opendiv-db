@@ -17,7 +17,13 @@ type TestObject struct {
 
 func ClearTestDatabase(DB *Driver) error {
 	test_dir := filepath.Join(DB.dir, "Test")
-	return os.RemoveAll(test_dir)
+	err := os.RemoveAll(test_dir)
+	if err != nil {
+		return err
+	}
+	logs_dir := filepath.Join(DB.dir, "_logs")
+	err = os.RemoveAll(logs_dir)
+	return err
 }
 
 func Test_CRUD(t *testing.T) {
@@ -46,7 +52,7 @@ func Test_CRUD(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	doc, err = DB.Collection("Test").Document(doc.Id)
+	doc, err = DB.Collection("Test").Document(doc.ID)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -63,12 +69,12 @@ func Test_CRUD(t *testing.T) {
 	t.Log("testing update operation")
 	test1_got.String = "test1_updated"
 	test1_got.Number = 10
-	doc, err = DB.Collection("Test").Write(doc.Id, test1_got)
+	doc, err = DB.Collection("Test").Write(doc.ID, test1_got)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	doc, err = DB.Collection("Test").Document(doc.Id)
+	doc, err = DB.Collection("Test").Document(doc.ID)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -83,14 +89,14 @@ func Test_CRUD(t *testing.T) {
 	}
 
 	t.Log("testing delete operation")
-	err = DB.Collection("Test").Delete(doc.Id)
+	err = DB.Collection("Test").Delete(doc.ID)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	doc, err = DB.Collection("Test").Document(doc.Id)
+	doc, err = DB.Collection("Test").Document(doc.ID)
 	if err == nil {
-		t.Fatal("document '" + doc.Id + "' still exists")
+		t.Fatal("document '" + doc.ID + "' still exists")
 	}
 
 	err = ClearTestDatabase(DB)
@@ -126,9 +132,9 @@ func Test_Encryption(t *testing.T) {
 	}
 
 	// Check to see if file exists
-	record := filepath.Join(config.Path, "test", doc_created.Id)
+	record := filepath.Join(config.Path, "test", doc_created.ID)
 	if _, err := stat(record); err != nil {
-		t.Fatal("document '" + doc_created.Id + "' doesn't exist in 'test'")
+		t.Fatal("document '" + doc_created.ID + "' doesn't exist in 'test'")
 	}
 
 	// read record from database
@@ -169,9 +175,9 @@ func Test_Encryption(t *testing.T) {
 	}
 
 	// Check to see if file exists
-	record = filepath.Join(config.Path, "test", doc_created.Id)
+	record = filepath.Join(config.Path, "test", doc_created.ID)
 	if _, err := stat(record); err != nil {
-		t.Fatal("document '" + doc_created.Id + "' doesn't exist in 'test'")
+		t.Fatal("document '" + doc_created.ID + "' doesn't exist in 'test'")
 	}
 
 	// read record from database
@@ -380,19 +386,19 @@ func Test_Filter(t *testing.T) {
 	// Test Doc States //
 	/////////////////////
 	t.Log("testing doc states")
-	if DB.doc_state["Test/"+test1_doc.Id] != test1_doc.Hash {
+	if DB.doc_state["Test/"+test1_doc.ID] != test1_doc.Hash {
 		t.Fatal("doc state isn't correct for doc 1")
 	}
 
-	if DB.doc_state["Test/"+test2_doc.Id] != test2_doc.Hash {
+	if DB.doc_state["Test/"+test2_doc.ID] != test2_doc.Hash {
 		t.Fatal("doc state isn't correct for doc 2")
 	}
 
-	if DB.doc_state["Test/"+test3_doc.Id] != test3_doc.Hash {
+	if DB.doc_state["Test/"+test3_doc.ID] != test3_doc.Hash {
 		t.Fatal("doc state isn't correct for doc 3")
 	}
 
-	if DB.doc_state["Test/"+test4_doc.Id] != test4_doc.Hash {
+	if DB.doc_state["Test/"+test4_doc.ID] != test4_doc.Hash {
 		t.Fatal("doc state isn't correct for doc 4")
 	}
 
@@ -438,7 +444,7 @@ func Test_Cache(t *testing.T) {
 	}
 
 	// Test to see document is coming from cache
-	doc_got_cache, err := DB.Collection("Test").Document(test1_doc.Id)
+	doc_got_cache, err := DB.Collection("Test").Document(test1_doc.ID)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -450,7 +456,7 @@ func Test_Cache(t *testing.T) {
 	t.Log("sleep to wait to make sure document stays in cache, 2 seconds")
 	time.Sleep(time.Second * 2)
 
-	doc_got_cache, err = DB.Collection("Test").Document(test1_doc.Id)
+	doc_got_cache, err = DB.Collection("Test").Document(test1_doc.ID)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -462,7 +468,7 @@ func Test_Cache(t *testing.T) {
 	t.Log("sleep to wait for cache to clear document, 8 seconds")
 	time.Sleep(time.Second * 8)
 
-	doc_got_noncache, err := DB.Collection("Test").Document(test1_doc.Id)
+	doc_got_noncache, err := DB.Collection("Test").Document(test1_doc.ID)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
