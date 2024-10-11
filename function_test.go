@@ -459,8 +459,8 @@ func Test_Cache(t *testing.T) {
 		t.Fatal("document wasn't returned from Cache")
 	}
 
-	t.Log("sleep to wait for cache to clear document, 6 seconds")
-	time.Sleep(time.Second * 6)
+	t.Log("sleep to wait for cache to clear document, 8 seconds")
+	time.Sleep(time.Second * 8)
 
 	doc_got_noncache, err := DB.Collection("Test").Document(test1_doc.Id)
 	if err != nil {
@@ -501,19 +501,19 @@ func Test_Cache(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	col, err := DB.Collection("Test").Documents()
+	if len(DB.cache.documents) != int(DB.cache.Limit) {
+		t.Fatal("returned number of cached documents was unexpected")
+	}
+
+	t.Log("sleep to wait for cache to clear document, 8 second")
+	time.Sleep(time.Second * 8)
+
+	_, err = DB.Collection("Test").Documents()
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 
-	expected_cached := config.Cache_limit
-	var cached_docs int
-	for _, doc := range col {
-		if doc.FromCache == true {
-			cached_docs = cached_docs + 1
-		}
-	}
-	if cached_docs != int(expected_cached) {
+	if len(DB.cache.documents) != int(DB.cache.Limit) {
 		t.Fatal("returned number of cached documents was unexpected")
 	}
 

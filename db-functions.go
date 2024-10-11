@@ -38,6 +38,11 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
+	return c.write(document, v)
+}
+
+// Internal function to write a document into collection
+func (c *Collection) write(document string, v interface{}) (Document, error) {
 	mutex := c.driver.getOrCreateMutex(c.collection_name + "/" + document)
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -105,6 +110,11 @@ func (c *Collection) Document(id string) (Document, error) {
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
+	return c.read(id)
+}
+
+// Internal function to read document from collection
+func (c *Collection) read(id string) (Document, error) {
 	// check if document exist in cache, if yes return the document from cache
 	if doc, in_cache := c.driver.cache.GetDoc(c.collection_name, id); in_cache {
 		return doc, nil
@@ -151,8 +161,7 @@ func (c *Collection) Document(id string) (Document, error) {
 	return doc, nil
 }
 
-// ReadAll documents from a collection; this is returned as a Collection
-// there is no way of knowing what type the record is.
+// ReadAll documents from a collection; this is returned as a Collection.
 func (c *Collection) Documents() ([]Document, error) {
 	// Check if filter is specified, use filtered function
 	if c.filter.field != "" {

@@ -155,11 +155,6 @@ func NewDB(config Config) (*Driver, error) {
 	return &driver, os.MkdirAll(dir, 0755)
 }
 
-// MUST BE RUN AS A GO ROUTINE! Runs an automatic purge to remove expired cache from memory
-func (d *Driver) RunCachePurge() {
-	d.cache.RunCachePurge()
-}
-
 func (d *Driver) Collection(name string) *Collection {
 	return &Collection{collection_name: name, driver: d}
 }
@@ -189,40 +184,4 @@ func (d *Driver) getOrCreateMutex(collection_document string) *sync.Mutex {
 	}
 
 	return m
-}
-
-// Set Document stat into memory
-func (d *Driver) setDocState(collection string, doc Document) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	d.doc_state[collection+"/"+doc.Id] = doc.Hash
-}
-
-// Remove a document state from memory
-func (d *Driver) removeDocState(collection string, id string) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-	delete(d.doc_state, collection+"/"+id)
-}
-
-// Load each document's current state into the memory
-func (d *Driver) loadDocState() error {
-	// Get all collection names
-	entries, err := os.ReadDir(d.dir)
-	if err != nil {
-		return nil
-	}
-	// For each collection
-	for _, dir := range entries {
-		if dir.IsDir() {
-			col, err := d.Collection(dir.Name()).Documents()
-			if err != nil {
-				return err
-			}
-			for _, doc := range col {
-				d.setDocState(dir.Name(), doc)
-			}
-		}
-	}
-	return nil
 }
