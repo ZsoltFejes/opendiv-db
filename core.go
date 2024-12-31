@@ -28,6 +28,8 @@ type (
 		doc_state         map[string]doc_state
 		subs              map[string]*Subscription
 		replication_hosts []replication_host
+		replication_pass  string
+		replication_state string
 	}
 
 	Document struct {
@@ -153,6 +155,8 @@ func NewDB(config Config) (*Driver, error) {
 		doc_state:         make(map[string]doc_state),
 		subs:              make(map[string]*Subscription),
 		replication_hosts: replication_nodes_temp,
+		replication_pass:  config.Replication_pass,
+		replication_state: "SYNCING",
 	}
 
 	// if the database already exists, just use it

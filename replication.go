@@ -1,16 +1,9 @@
 package opendivdb
 
 /*
-Sync function TODOs
-	Function to send Doc to specific node
-	Function to broadcast changes to all nodes
-	Go Function to keep checking if a replica is listening (PING-PONG)
-		Keep the peer's state in memory
-		Keep checking doc state across peers
-	Function to handle requests coming from remote to sync
 
 Sync Idea (peer 1, 2 and 3)
-	1. Peer 1 comes online and reaches out to peer 1 and 3 that it is online and should receive now live updates. Current state SYNCING
+	1. Peer 1 comes online and reaches out to peer 1 and 3 that it is online. Current state SYNCING
 	2. Peer 1 reaches out to peer 2 and 3 to get their latest doc state
 	3. Peers 2 and 3 reply with the Doc State
 	4. Peer 1 will request one by one the documents where the hash matches on both peers from peer 2
@@ -30,6 +23,7 @@ type (
 		host_address string
 		state        string // OFFLINE, ONLINE, SYNCING
 		last_ping    time.Time
+		last_synced  time.Time
 	}
 	doc_state struct {
 		Hash      string
@@ -72,4 +66,25 @@ func (d *Driver) loadDocState() error {
 		}
 	}
 	return nil
+}
+
+// Function to send Doc to specific node
+
+// Function to broadcast changes to all nodes (wrap sending a doc to single node into a loop)
+
+/*
+Main Go Function to keep checking if a replica is listening (PING-PONG)
+	Handle SYNC
+	Do ping pong to keep peer's state up to date
+	Keep checking doc state across peers
+*/
+
+// Main Sync Go Routine
+func (d *Driver) runSync() {
+	// Define replication endpoints (Gin)
+	// Start goroutine to listen to replication requests
+	// Broadcast that you are SYNCING. Peers, will reply with the doc state		<- Endpoint to create /api/sync?replication_state=SYNCING
+	// Request all out of sync docs from one peer
+	// Once all docs are synced, Start goroutine to get regular sync checks (every 5 minute)
+	// Broadcast to all peers that you have finished syncing and are online		<- Endpoint to create /api/sync?replication_state=ONLINE
 }
