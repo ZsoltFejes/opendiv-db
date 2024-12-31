@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +26,7 @@ type (
 		dir               string // the directory where scribble will create the database
 		doc_state         map[string]doc_state
 		subs              map[string]*Subscription
-		replication_hosts []replication_host
+		replication_hosts map[string]replication_host
 		replication_pass  string
 		replication_state string
 	}
@@ -41,13 +40,13 @@ type (
 	}
 
 	Config struct {
-		Encryption_key    string   `yaml:"encryption_key,omitempty"`    // Database encryption key must be 32 characters long for AES-256
-		Salt              string   `yaml:"omitempty"`                   // Salt for encryption not included in the config file but in the binary
-		Path              string   `yaml:"path,omitempty"`              // Path to the where the collections and documents will be placed
-		Cache_timeout     float64  `yaml:"cache_timeout,omitempty"`     // Database cache timeout in seconds
-		Cache_limit       float64  `yaml:"cache_limit,omitempty"`       // Maximum number of documents cached at a given time, when exceeded the oldest document is removed
-		Replication_pass  string   `yaml:"replication_pass,omitempty"`  // Replication Password
-		Replication_nodes []string `yaml:"replication_nodes,omitempty"` // List of nodes that replicates the database
+		Encryption_key    string            `yaml:"encryption_key,omitempty"`    // Database encryption key must be 32 characters long for AES-256
+		Salt              string            `yaml:"omitempty"`                   // Salt for encryption not included in the config file but in the binary
+		Path              string            `yaml:"path,omitempty"`              // Path to the where the collections and documents will be placed
+		Cache_timeout     float64           `yaml:"cache_timeout,omitempty"`     // Database cache timeout in seconds
+		Cache_limit       float64           `yaml:"cache_limit,omitempty"`       // Maximum number of documents cached at a given time, when exceeded the oldest document is removed
+		Replication_pass  string            `yaml:"replication_pass,omitempty"`  // Replication Password
+		Replication_nodes map[string]string `yaml:"replication_nodes,omitempty"` // List of nodes that replicates the database
 	}
 )
 
@@ -86,25 +85,12 @@ func LoadConfig(path_to_config_file string) (Config, error) {
 	config_b, err := os.ReadFile(filepath.Join(path_to_config_file))
 	// If  there was an error reading the file fall back to using environment variables
 	if err != nil {
-		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
-		config.Path = os.Getenv("OPENDIV_DB_PATH")
-		config.Replication_pass = os.Getenv("OPENDIV_DB_REPLICATION_PASS")
-		replication_nodes_string := os.Getenv("OPENDIV_DB_REPLICATION_NODES")
-		config.Replication_nodes = strings.Split(replication_nodes_string, ",")
-		config.Cache_limit, err = strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_LIMIT"), 64)
-		if err != nil {
-			config.Cache_limit = 0
-		}
-		timeout, err := strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_TIMEOUT"), 64)
-		if err != nil {
-			config.Cache_timeout = 0
-		}
-		config.Cache_timeout = timeout
-	} else {
-		err = yaml.Unmarshal(config_b, &config)
-		if err != nil {
-			return Config{}, fmt.Errorf("unable to unmarshal configuration file")
-		}
+		return Config{}, fmt.Errorf("config file not found")
+	}
+
+	err = yaml.Unmarshal(config_b, &config)
+	if err != nil {
+		return Config{}, fmt.Errorf("unable to unmarshal configuration file")
 	}
 
 	// Check db path is specified.
@@ -141,9 +127,9 @@ func NewDB(config Config) (*Driver, error) {
 		encryption_key = hash[:]
 	}
 
-	var replication_nodes_temp []replication_host
-	for _, node := range config.Replication_nodes {
-		replication_nodes_temp = append(replication_nodes_temp, replication_host{host_address: node, state: "OFFLINE"})
+	replication_nodes_temp := make(map[string]replication_host)
+	for id, node := range config.Replication_nodes {
+		replication_nodes_temp[id] = replication_host{host_address: node, state: "OFFLINE"}
 	}
 
 	// Build driver
@@ -171,6 +157,7 @@ func NewDB(config Config) (*Driver, error) {
 		return &driver, err
 	}
 	go driver.cache.runCachePurge()
+	go driver.runReplication()
 
 	return &driver, nil
 }
