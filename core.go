@@ -20,29 +20,32 @@ type (
 	// Driver is what is used to interact with the scribble database. It runs
 	// transactions, and provides log output
 	Driver struct {
-		encryption_key []byte
-		mutex          sync.Mutex
-		mutexes        map[string]*sync.Mutex
-		cache          Cache
-		dir            string // the directory where scribble will create the database
-		doc_state      map[string]string
-		subs           map[string]*Subscription
+		encryption_key    []byte
+		mutex             sync.Mutex
+		mutexes           map[string]*sync.Mutex
+		cache             cache
+		dir               string // the directory where scribble will create the database
+		doc_state         map[string]doc_state
+		subs              map[string]*Subscription
+		replication_hosts []replication_host
 	}
 
 	Document struct {
 		ID         string
 		Updated_at time.Time
-		FromCache  bool
+		From_cache bool
 		Hash       string // Hash of "Data" bytes
 		Data       json.RawMessage
 	}
 
 	Config struct {
-		Encryption_key string  `yaml:"encryption_key,omitempty"` // Database encryption key must be 32 characters long for AES-256
-		Salt           string  `yaml:"omitempty"`                // Salt for encryption not included in the config file but in the binary
-		Path           string  `yaml:"path,omitempty"`           // Path to the where the collections and documents will be placed
-		Cache_timeout  float64 `yaml:"cache_timeout,omitempty"`  // Database cache timeout in seconds
-		Cache_limit    float64 `yaml:"cache_limit,omitempty"`    // Maximum number of documents cached at a given time, when exceeded the oldest document is removed
+		Encryption_key    string   `yaml:"encryption_key,omitempty"`    // Database encryption key must be 32 characters long for AES-256
+		Salt              string   `yaml:"omitempty"`                   // Salt for encryption not included in the config file but in the binary
+		Path              string   `yaml:"path,omitempty"`              // Path to the where the collections and documents will be placed
+		Cache_timeout     float64  `yaml:"cache_timeout,omitempty"`     // Database cache timeout in seconds
+		Cache_limit       float64  `yaml:"cache_limit,omitempty"`       // Maximum number of documents cached at a given time, when exceeded the oldest document is removed
+		Replication_pass  string   `yaml:"replication_pass,omitempty"`  // Replication Password
+		Replication_nodes []string `yaml:"replication_nodes,omitempty"` // List of nodes that replicates the database
 	}
 )
 
@@ -83,6 +86,9 @@ func LoadConfig(path_to_config_file string) (Config, error) {
 	if err != nil {
 		config.Encryption_key = os.Getenv("OPENDIV_DB_ENCRYPTION_KEY")
 		config.Path = os.Getenv("OPENDIV_DB_PATH")
+		config.Replication_pass = os.Getenv("OPENDIV_DB_REPLICATION_PASS")
+		replication_nodes_string := os.Getenv("OPENDIV_DB_REPLICATION_NODES")
+		config.Replication_nodes = strings.Split(replication_nodes_string, ",")
 		config.Cache_limit, err = strconv.ParseFloat(os.Getenv("OPENDIV_DB_CACHE_LIMIT"), 64)
 		if err != nil {
 			config.Cache_limit = 0
@@ -133,14 +139,20 @@ func NewDB(config Config) (*Driver, error) {
 		encryption_key = hash[:]
 	}
 
+	var replication_nodes_temp []replication_host
+	for _, node := range config.Replication_nodes {
+		replication_nodes_temp = append(replication_nodes_temp, replication_host{host_address: node, state: "OFFLINE"})
+	}
+
 	// Build driver
 	driver := Driver{
-		encryption_key: encryption_key[:],
-		dir:            dir,
-		mutexes:        make(map[string]*sync.Mutex),
-		cache:          Cache{Timeout: cache_timeout, Limit: cache_limit, documents: make(map[string]Cached_Doc)},
-		doc_state:      make(map[string]string),
-		subs:           make(map[string]*Subscription),
+		encryption_key:    encryption_key[:],
+		dir:               dir,
+		mutexes:           make(map[string]*sync.Mutex),
+		cache:             cache{timeout: cache_timeout, limit: cache_limit, documents: make(map[string]cached_doc)},
+		doc_state:         make(map[string]doc_state),
+		subs:              make(map[string]*Subscription),
+		replication_hosts: replication_nodes_temp,
 	}
 
 	// if the database already exists, just use it

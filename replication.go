@@ -22,13 +22,27 @@ Sync Idea (peer 1, 2 and 3)
 
 import (
 	"os"
+	"time"
+)
+
+type (
+	replication_host struct {
+		host_address string
+		state        string // OFFLINE, ONLINE, SYNCING
+		last_ping    time.Time
+	}
+	doc_state struct {
+		Hash      string
+		Timestamp time.Time
+	}
 )
 
 // Set Document stat into memory
 func (d *Driver) setDocState(collection string, doc Document) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.doc_state[collection+"/"+doc.ID] = doc.Hash
+	doc_state := doc_state{Hash: doc.Hash, Timestamp: doc.Updated_at}
+	d.doc_state[collection+"/"+doc.ID] = doc_state
 }
 
 // Remove a document state from memory

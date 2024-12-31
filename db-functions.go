@@ -45,7 +45,7 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 	}
 
 	// add the new document to cache
-	err = c.driver.cache.Add(*c, doc)
+	err = c.driver.cache.add(*c, doc)
 	if err != nil {
 		return Document{}, err
 	}
@@ -77,7 +77,7 @@ func (c *Collection) write(document string, v interface{}) (Document, error) {
 		return Document{}, err
 	}
 	// create document wrapping the data bytes
-	doc := Document{ID: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(v_b), FromCache: false}
+	doc := Document{ID: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(v_b), From_cache: false}
 	b, err := json.MarshalIndent(doc, "", "\t")
 	if err != nil {
 		return Document{}, err
@@ -124,7 +124,7 @@ func (c *Collection) Document(id string) (Document, error) {
 // Internal function to read document from collection
 func (c *Collection) read(id string) (Document, error) {
 	// check if document exist in cache, if yes return the document from cache
-	if doc, in_cache := c.driver.cache.GetDoc(c.collection_name, id); in_cache {
+	if doc, in_cache := c.driver.cache.getDoc(c.collection_name, id); in_cache {
 		return doc, nil
 	}
 
@@ -161,7 +161,7 @@ func (c *Collection) read(id string) (Document, error) {
 	}
 
 	// Add document to cache
-	err = c.driver.cache.Add(*c, doc)
+	err = c.driver.cache.add(*c, doc)
 	if err != nil {
 		return doc, err
 	}
@@ -259,7 +259,7 @@ func (c *Collection) Delete(id string) error {
 		if err != nil {
 			return fmt.Errorf("unable to delete document from OS " + err.Error())
 		}
-		c.driver.cache.Delete(c.collection_name, id)
+		c.driver.cache.delete(c.collection_name, id)
 		c.driver.removeDocState(c.collection_name, id)
 		go c.driver.checkSubscriptionPush(c.collection_name, doc)
 		return nil

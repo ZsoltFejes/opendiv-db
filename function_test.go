@@ -254,7 +254,7 @@ func Test_Filter(t *testing.T) {
 	/////////////////
 	// Test Number //
 	/////////////////
-	t.Log("testing string number")
+	t.Log("testing number filter")
 	var test_number float64 = 2
 	col, err := DB.Collection("Test").Where("Number", ">", test_number).Documents()
 	if err != nil {
@@ -385,19 +385,19 @@ func Test_Filter(t *testing.T) {
 	// Test Doc States //
 	/////////////////////
 	t.Log("testing doc states")
-	if DB.doc_state["Test/"+test1_doc.ID] != test1_doc.Hash {
+	if DB.doc_state["Test/"+test1_doc.ID].Hash != test1_doc.Hash || DB.doc_state["Test/"+test1_doc.ID].Timestamp != test1_doc.Updated_at {
 		t.Fatal("doc state isn't correct for doc 1")
 	}
 
-	if DB.doc_state["Test/"+test2_doc.ID] != test2_doc.Hash {
+	if DB.doc_state["Test/"+test2_doc.ID].Hash != test2_doc.Hash || DB.doc_state["Test/"+test2_doc.ID].Timestamp != test2_doc.Updated_at {
 		t.Fatal("doc state isn't correct for doc 2")
 	}
 
-	if DB.doc_state["Test/"+test3_doc.ID] != test3_doc.Hash {
+	if DB.doc_state["Test/"+test3_doc.ID].Hash != test3_doc.Hash || DB.doc_state["Test/"+test3_doc.ID].Timestamp != test3_doc.Updated_at {
 		t.Fatal("doc state isn't correct for doc 3")
 	}
 
-	if DB.doc_state["Test/"+test4_doc.ID] != test4_doc.Hash {
+	if DB.doc_state["Test/"+test4_doc.ID].Hash != test4_doc.Hash || DB.doc_state["Test/"+test4_doc.ID].Timestamp != test4_doc.Updated_at {
 		t.Fatal("doc state isn't correct for doc 4")
 	}
 
@@ -447,7 +447,7 @@ func Test_Cache(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	if doc_got_cache.FromCache != true {
+	if doc_got_cache.From_cache != true {
 		t.Fatal("document wasn't returned from Cache")
 	}
 
@@ -459,7 +459,7 @@ func Test_Cache(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	if doc_got_cache.FromCache != true {
+	if doc_got_cache.From_cache != true {
 		t.Fatal("document wasn't returned from Cache")
 	}
 
@@ -471,7 +471,7 @@ func Test_Cache(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	if doc_got_noncache.FromCache != false {
+	if doc_got_noncache.From_cache != false {
 		t.Fatal("document was returned from Cache")
 	}
 
@@ -505,7 +505,7 @@ func Test_Cache(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	if len(DB.cache.documents) != int(DB.cache.Limit) {
+	if len(DB.cache.documents) != int(DB.cache.limit) {
 		t.Fatal("returned number of cached documents was unexpected")
 	}
 
@@ -517,7 +517,7 @@ func Test_Cache(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	if len(DB.cache.documents) != int(DB.cache.Limit) {
+	if len(DB.cache.documents) != int(DB.cache.limit) {
 		t.Fatal("returned number of cached documents was unexpected")
 	}
 
