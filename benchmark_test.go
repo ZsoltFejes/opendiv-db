@@ -1,6 +1,7 @@
 package opendivdb
 
 import (
+	"os"
 	"strconv"
 	"testing"
 
@@ -17,6 +18,12 @@ func Benchmark_NonEncrypted_Serial(b *testing.B) {
 		b.Fatal(err.Error())
 	}
 
+	// Delete DB Directory for testing
+	err = os.RemoveAll(config.Path)
+	if err != nil {
+		b.Fatal("unable to delete DB directory - " + err.Error())
+	}
+
 	config.Encryption_key = ""
 	config.Salt = ""
 	// Create database driver
@@ -24,8 +31,6 @@ func Benchmark_NonEncrypted_Serial(b *testing.B) {
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
-	// Cache not needed right now for this test
-	go DB.RunCachePurge()
 
 	// Test sequential write
 	for id := range number_of_documents {
@@ -58,8 +63,6 @@ func Benchmark_NonEncrypted_Parallel(b *testing.B) {
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
-	// Cache not needed right now for this test
-	go DB.RunCachePurge()
 
 	// Test parallel write
 	eg := errgroup.Group{}
@@ -96,8 +99,6 @@ func Benchmark_Encrypted_Serial(b *testing.B) {
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
-	// Cache not needed right now for this test
-	go DB.RunCachePurge()
 
 	// Test sequential write
 	for id := range number_of_documents {
@@ -130,8 +131,6 @@ func Benchmark_Encrypted_Parallel(b *testing.B) {
 	if err != nil {
 		b.Fatal("Unable to create DB! " + err.Error())
 	}
-	// Cache not needed right now for this test
-	go DB.RunCachePurge()
 
 	// Test parallel write
 	eg := errgroup.Group{}

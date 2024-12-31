@@ -19,19 +19,16 @@ type (
 	}
 )
 
-// MUST BE RUN AS A GO ROUTINE! Runs an automatic purge to remove expired cache from memory
-func (d *Driver) RunCachePurge() {
-	d.cache.runCachePurge()
-}
-
 // Must be run as a go routine. Runs an infinite loop to check the cache every 5 seconds to deletes expired cache
 func (c *Cache) runCachePurge() {
 	for {
+		c.mutex.Lock()
 		for id, value := range c.documents {
 			if value.Cached_at.Add(c.Timeout).Before(time.Now()) {
 				delete(c.documents, id)
 			}
 		}
+		c.mutex.Unlock()
 		time.Sleep(time.Second * 1)
 	}
 }
@@ -59,6 +56,7 @@ func (c *Cache) Add(coll_ref Collection, doc Document) error {
 		}
 		c.Delete(coll_ref.collection_name, oldest_doc.Document.ID)
 	}
+
 	doc.FromCache = true
 	cached_doc := Cached_Doc{Cached_at: time.Now(), Document: doc}
 	c.documents[coll_ref.collection_name+"/"+doc.ID] = cached_doc

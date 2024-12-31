@@ -27,6 +27,12 @@ func Test_CRUD(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
+	// Delete DB Directory for testing
+	err = os.RemoveAll(config.Path)
+	if err != nil {
+		t.Fatal("unable to delete DB directory - " + err.Error())
+	}
+
 	// Create database driver
 	config.Salt = "xvq-Gn2L4TvwrFQzTCUZzGNbQ.wKbuKB-KmDXLv8iJ.2syPbheC!KkCfhwip@@Mn_X2RdfAsdE6o9-hwwErc**UwVtaxZvBLWHTd"
 	DB, err = NewDB(config)
@@ -210,8 +216,7 @@ func Test_Filter(t *testing.T) {
 	if err != nil {
 		t.Fatal("unable to create DB " + err.Error())
 	}
-	// Cache not needed right now for this test
-	go DB.RunCachePurge()
+
 	err = ClearTestDatabase(DB)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -418,8 +423,7 @@ func Test_Cache(t *testing.T) {
 	if err != nil {
 		t.Fatal("unable to create DB " + err.Error())
 	}
-	// Cache not needed right now for this test
-	go DB.RunCachePurge()
+
 	err = ClearTestDatabase(DB)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -540,7 +544,7 @@ func Test_Subscriptions(t *testing.T) {
 		t.Fatal("unable to create DB " + err.Error())
 	}
 	// Cache not needed right now for this test
-	go DB.RunCachePurge()
+
 	err = ClearTestDatabase(DB)
 	if err != nil {
 		t.Fatal(err.Error())

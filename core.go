@@ -144,17 +144,19 @@ func NewDB(config Config) (*Driver, error) {
 	}
 
 	// if the database already exists, just use it
-	if _, err := os.Stat(dir); err == nil {
-		err = driver.loadDocState()
-		if err != nil {
-			return &driver, err
+	if _, err := os.Stat(dir); err != nil {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return nil, err
 		}
-		return &driver, nil
 	}
 
-	// if the database doesn't exist create it
-	//l("Creating database at '"+dir+"'...", false, true)
-	return &driver, os.MkdirAll(dir, 0755)
+	err := driver.loadDocState()
+	if err != nil {
+		return &driver, err
+	}
+	go driver.cache.runCachePurge()
+
+	return &driver, nil
 }
 
 func (d *Driver) Collection(name string) *Collection {
