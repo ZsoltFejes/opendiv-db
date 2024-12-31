@@ -38,39 +38,6 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 		return Document{}, fmt.Errorf(`document ID validation error - ` + err.Error())
 	}
 
-	// Write document to disk
-	doc, err := c.write(document, v)
-	if err != nil {
-		return doc, err
-	}
-
-	// add the new document to cache
-	err = c.driver.cache.add(*c, doc)
-	if err != nil {
-		return Document{}, err
-	}
-
-	// Update in memory document state
-	go c.driver.setDocState(c.collection_name, doc)
-	// Push change to subscribers
-	go c.driver.checkSubscriptionPush(c.collection_name, doc)
-	return doc, nil
-}
-
-// Internal function to write a document into collection
-func (c *Collection) write(document string, v interface{}) (Document, error) {
-	mutex := c.driver.getOrCreateMutex(c.collection_name + "/" + document)
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	dir := filepath.Join(c.driver.dir, c.collection_name)
-	fnlPath := filepath.Join(dir, document)
-	tmpPath := fnlPath + ".tmp"
-
-	// create collection directory
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return Document{}, err
-	}
 	// marshal document to JSON with tab indents
 	v_b, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
@@ -78,30 +45,62 @@ func (c *Collection) write(document string, v interface{}) (Document, error) {
 	}
 	// create document wrapping the data bytes
 	doc := Document{ID: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(v_b), From_cache: false}
+	// Write document to disk
+	err = c.write(document, doc)
+	if err != nil {
+		return doc, err
+	}
+	go c.driver.sendDocToAllNodes(c.collection_name, doc)
+
+	return doc, nil
+}
+
+// Internal function to write a document into collection
+func (c *Collection) write(document_id string, doc Document) error {
+	mutex := c.driver.getOrCreateMutex(c.collection_name + "/" + document_id)
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	dir := filepath.Join(c.driver.dir, c.collection_name)
+	fnlPath := filepath.Join(dir, document_id)
+	tmpPath := fnlPath + ".tmp"
+
+	// create collection directory
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
 	b, err := json.MarshalIndent(doc, "", "\t")
 	if err != nil {
-		return Document{}, err
+		return err
 	}
 
 	// check if encryption is enabled and encrypt entire document before writing it to disk
 	if len(c.driver.encryption_key) != 0 {
 		b, err = EncryptAES(c.driver.encryption_key, b)
 		if err != nil {
-			return Document{}, err
+			return err
 		}
 	}
 	// write document bytes to the disk
 	if err := os.WriteFile(tmpPath, b, 0644); err != nil {
-		return Document{}, err
+		return err
 	}
 
 	// move final file into place
 	err = os.Rename(tmpPath, fnlPath)
 	if err != nil {
-		return Document{}, err
+		return err
 	}
 
-	return doc, nil
+	// add the new document to cache
+	c.driver.cache.add(*c, doc)
+	// Update in memory document state
+	c.driver.setDocState(c.collection_name, doc)
+	// Push change to subscribers
+	go c.driver.checkSubscriptionPush(c.collection_name, doc)
+
+	return nil
 }
 
 // Read a document from the database or Cache
@@ -161,10 +160,7 @@ func (c *Collection) read(id string) (Document, error) {
 	}
 
 	// Add document to cache
-	err = c.driver.cache.add(*c, doc)
-	if err != nil {
-		return doc, err
-	}
+	c.driver.cache.add(*c, doc)
 
 	return doc, nil
 }

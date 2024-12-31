@@ -29,6 +29,7 @@ type (
 		replication_hosts map[string]replication_host
 		replication_pass  string
 		replication_state string
+		replication_port  int
 	}
 
 	Document struct {
@@ -47,6 +48,7 @@ type (
 		Cache_limit       float64           `yaml:"cache_limit,omitempty"`       // Maximum number of documents cached at a given time, when exceeded the oldest document is removed
 		Replication_pass  string            `yaml:"replication_pass,omitempty"`  // Replication Password
 		Replication_nodes map[string]string `yaml:"replication_nodes,omitempty"` // List of nodes that replicates the database
+		Replication_port  int               `yaml:"replication_port,omitempty"`  // Port used replication
 	}
 )
 
@@ -143,6 +145,7 @@ func NewDB(config Config) (*Driver, error) {
 		replication_hosts: replication_nodes_temp,
 		replication_pass:  config.Replication_pass,
 		replication_state: "SYNCING",
+		replication_port:  config.Replication_port,
 	}
 
 	// if the database already exists, just use it

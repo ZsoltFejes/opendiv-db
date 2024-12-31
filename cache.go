@@ -33,7 +33,7 @@ func (c *cache) runCachePurge() {
 	}
 }
 
-func (c *cache) add(coll_ref Collection, doc Document) error {
+func (c *cache) add(coll_ref Collection, doc Document) {
 	// Obtain Mutex
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -60,7 +60,6 @@ func (c *cache) add(coll_ref Collection, doc Document) error {
 	doc.From_cache = true
 	cached_doc := cached_doc{cached_at: time.Now(), document: doc}
 	c.documents[coll_ref.collection_name+"/"+doc.ID] = cached_doc
-	return nil
 }
 
 func (c *cache) getDoc(collection_name string, document_id string) (Document, bool) {
