@@ -44,13 +44,13 @@ func (c *Collection) Write(document string, v interface{}) (Document, error) {
 		return Document{}, err
 	}
 	// create document wrapping the data bytes
-	doc := Document{ID: document, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(v_b), From_cache: false}
+	doc := Document{ID: document, Collection: c.collection_name, Data: v_b, Updated_at: time.Now(), Hash: GetMD5Hash(v_b), From_cache: false}
 	// Write document to disk
 	err = c.write(document, doc)
 	if err != nil {
 		return doc, err
 	}
-	go c.driver.sendDocToAllNodes(c.collection_name, doc)
+	go c.driver.sendDocToAllNodes(doc)
 
 	return doc, nil
 }

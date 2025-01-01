@@ -34,6 +34,7 @@ type (
 
 	Document struct {
 		ID         string
+		Collection string
 		Updated_at time.Time
 		From_cache bool
 		Hash       string // Hash of "Data" bytes

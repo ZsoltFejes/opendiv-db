@@ -14,7 +14,10 @@ Sync Idea (peer 1, 2 and 3)
 */
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -91,23 +94,23 @@ func (d *Driver) getDocStateAfter(timestamp time.Time) map[string]doc_state {
 func (d *Driver) checkReplicationPass(c *gin.Context) {
 	pass := c.GetHeader("Authorization")
 	if pass != d.replication_pass {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, error_response{Error: "unauthorized"})
 		return
 	}
 	c.Next()
 }
 
 // URL ARGS: state=SYNCING or replication_state=ONLINE
-func (d *Driver) syncEndpoint(c *gin.Context) {
+func (d *Driver) GETSync(c *gin.Context) {
 	// check url args for new state
 	new_state := c.Query("state")
 	if new_state == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "'state' was not provided"})
+		c.JSON(http.StatusBadRequest, error_response{Error: "'state' was not provided"})
 		return
 	}
 	replication_id := c.Query("id")
 	if replication_id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "'id' was not provided"})
+		c.JSON(http.StatusBadRequest, error_response{Error: "'id' was not provided"})
 		return
 	}
 	d.mutex.Lock()
@@ -131,7 +134,7 @@ func (d *Driver) syncEndpoint(c *gin.Context) {
 		response = d.getDocStateAfter(d.replication_hosts[replication_id].last_synced)
 	default:
 		response_status = http.StatusBadRequest
-		response = gin.H{"error": "state '" + new_state + "' not supported"}
+		response = error_response{Error: "state '" + new_state + "' not supported"}
 	}
 
 	// Save new state
@@ -143,15 +146,15 @@ func (d *Driver) syncEndpoint(c *gin.Context) {
 }
 
 // URL ARGS: collection=test,document_id=docID,hash=docHash
-func (d *Driver) docEndpoint(c *gin.Context) {
+func (d *Driver) GETDoc(c *gin.Context) {
 	collection := c.Query("collection")
 	if collection == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "'collection' was not provided"})
+		c.JSON(http.StatusBadRequest, error_response{Error: "'collection' was not provided"})
 		return
 	}
 	document_id := c.Query("document_id")
 	if document_id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "'document_id' was not provided"})
+		c.JSON(http.StatusBadRequest, error_response{Error: "'document_id' was not provided"})
 		return
 	}
 	hash := c.Query("hash")
@@ -159,7 +162,7 @@ func (d *Driver) docEndpoint(c *gin.Context) {
 	if hash != d.doc_state[collection+"/"+document_id].Hash {
 		doc, err := d.Collection(collection).Document(document_id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, error_response{Error: err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, doc)
@@ -167,36 +170,33 @@ func (d *Driver) docEndpoint(c *gin.Context) {
 }
 
 // URL ARGS collection, and document_id
-func (d *Driver) docUpdateEndpoint(c *gin.Context) {
-	// Check url arguments
-	collection := c.Query("collection")
-	if collection == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "'collection' was not provided"})
-		return
-	}
-	document_id := c.Query("document_id")
-	if document_id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "'document_id' was not provided"})
-		return
-	}
+func (d *Driver) POSTDoc(c *gin.Context) {
 	// Unmarshal doc from request
 	doc := Document{}
 	err := c.ShouldBindJSON(&doc)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, error_response{Error: err.Error()})
 	}
 
 	// Save replicated file to local file system
-	if err = d.Collection(collection).write(document_id, doc); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err = d.Collection(doc.Collection).write(doc.ID, doc); err != nil {
+		c.JSON(http.StatusInternalServerError, error_response{Error: err.Error()})
 	}
 }
 
 // Function to send Doc to specific node
-func (d *Driver) sendDocToNode(node string, collection string, document Document) error {
+func (d *Driver) sendDocToNode(node_id string, document Document) error {
 	client := http.Client{}
-	// Marshal document to json and add it to bellow request
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/sync/doc?collection=%s,document_id=%s", d.replication_hosts[node].host_address, collection, document.ID), nil)
+
+	doc_b, err := json.Marshal(document)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("%s/api/sync/doc", d.replication_hosts[node_id].host_address),
+		bytes.NewBuffer(doc_b),
+	)
 	if err != nil {
 		return err
 	}
@@ -208,25 +208,66 @@ func (d *Driver) sendDocToNode(node string, collection string, document Document
 	}
 
 	if res.StatusCode != http.StatusOK {
-		//response := error_response{}
-		// Unmarshal response to error
-
+		response := error_response{}
+		err := json.NewDecoder(res.Body).Decode(&response)
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("following error occurred while pushing change to node '%s' - %s", node_id, err.Error()))
+		}
 		// Update bellow error message
-		return fmt.Errorf(fmt.Sprintf("following error occurred while pushing change to node '%s' - ", node))
+		return fmt.Errorf(fmt.Sprintf("following error occurred while pushing change to node '%s' - %s", node_id, response.Error))
 	}
 
 	return nil
 }
 
 // Function to broadcast changes to all nodes (wrap sending a doc to single node into a loop)
-func (d *Driver) sendDocToAllNodes(collection string, doc Document) {
+func (d *Driver) sendDocToAllNodes(doc Document) {
 	for id, node := range d.replication_hosts {
 		if node.state == "ONLINE" {
-			if err := d.sendDocToNode(id, collection, doc); err != nil {
+			if err := d.sendDocToNode(id, doc); err != nil {
 				fmt.Println("[error] " + err.Error())
 			}
 		}
 	}
+}
+
+func (d *Driver) getDocFromNode(node_id string, collection string, doc_id string, hash string) (Document, error) {
+	client := http.Client{}
+	req, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("%s/api/sync/doc?collection=%s&document_id=%s&hash=%s", d.replication_hosts[node_id].host_address, collection, doc_id, hash),
+		nil,
+	)
+	if err != nil {
+		return Document{}, err
+	}
+
+	req.Header.Add("Authorization", d.replication_pass)
+	res, err := client.Do(req)
+	if err != nil {
+		return Document{}, err
+	}
+
+	res_b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return Document{}, fmt.Errorf("error occurred wile reading response %s", err.Error())
+	}
+
+	if res.StatusCode != http.StatusOK {
+		response := error_response{}
+		err := json.Unmarshal(res_b, &response)
+		if err != nil {
+			return Document{}, err
+		}
+		// Update bellow error message
+		return Document{}, err
+	}
+	doc := Document{}
+	err = json.Unmarshal(res_b, &doc)
+	if err != nil {
+		return Document{}, err
+	}
+	return doc, nil
 }
 
 // Main Sync Go Routine
@@ -238,9 +279,9 @@ func (d *Driver) runReplication() {
 	sync := r.Group("/api/sync")
 	sync.Use(d.checkReplicationPass)
 	{
-		r.GET("", d.syncEndpoint)
-		r.GET("/doc", d.docEndpoint)
-		r.POST("/doc", d.docUpdateEndpoint)
+		r.GET("", d.GETSync)
+		r.GET("/doc", d.GETDoc)
+		r.POST("/doc", d.POSTDoc)
 	}
 
 	// Start goroutine to listen to replication requests
